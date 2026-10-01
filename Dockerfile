@@ -2,6 +2,7 @@ FROM python:3.14-slim-bookworm
 
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
+    HOME=/tmp \
     DATABASE_PATH=/tmp/capybara.db \
     STOCKFISH_PATH=/usr/games/stockfish
 
