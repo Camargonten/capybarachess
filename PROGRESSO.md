@@ -38,3 +38,4 @@
 - [x] Tabuleiro: interação de clique por origem/destino validada com `e2e4`. O suporte por toque existente foi preservado; o navegador de teste não permite habilitar `hasTouch`, então não foi possível fazer uma simulação touchscreen nativa nesta rodada.
 - [x] Animação: `moveSpeed` centralizado em 160 ms e respeita `prefers-reduced-motion`; validação confirmou 160 ms passados ao jQuery do chessboard.js.
 - [x] Documentação: criado `REQUISITOS.md` com arquitetura, fluxos, operação no Render e orientações de manutenção. Adicionados comentários curtos nas rotinas centrais de jogo, tradução, áudio e navegação.
+- [x] Estrutura do Guia: renomeada a pasta vazia para `capybara-guide` e adicionada nota de escopo. Busca global não encontrou imports, assets ou caminhos runtime para migrar; a feature continua implementada no template principal.
