@@ -1,5 +1,6 @@
 import asyncio
 import logging
+from contextlib import contextmanager
 from subprocess import TimeoutExpired
 from threading import BoundedSemaphore
 import chess
@@ -103,6 +104,26 @@ def _shutdown_simple_engine(engine: chess.engine.SimpleEngine) -> None:
         except TimeoutExpired:
             process.kill()
             process.wait(timeout=1.0)
+
+@contextmanager
+def stockfish_engine(timeout: float = 10.0):
+    with _engine_slots:
+        engine = None
+        startup_errors = []
+        for candidate in STOCKFISH_CANDIDATES:
+            try:
+                engine = _open_simple_engine(candidate, timeout)
+                break
+            except Exception as error:
+                startup_errors.append((candidate, error))
+                logger.exception("Falha ao iniciar Stockfish em %s", candidate)
+        if engine is None:
+            details = '; '.join(f'{path}: {error!r}' for path, error in startup_errors)
+            raise RuntimeError(f"Não foi possível iniciar Stockfish: {details}") from (startup_errors[-1][1] if startup_errors else None)
+        try:
+            yield engine
+        finally:
+            _shutdown_simple_engine(engine)
 
 def elo_expected(rating_a: float, rating_b: float) -> float:
     diff = max(-400.0, min(400.0, float(rating_b - rating_a)))

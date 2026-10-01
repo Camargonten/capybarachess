@@ -45,6 +45,15 @@
         @keyframes achievement-flash { 50% { box-shadow: inset 0 0 110px #e8ae3e; } }
         @keyframes menu-flash { 50% { filter: brightness(1.25); } }
         @keyframes capy-bob { 0%, 100% { transform: translateY(0) rotate(-1deg); } 50% { transform: translateY(-9px) rotate(1deg); } }
+        .draw-king-left.draw-animation-run { animation: draw-king-left 1.1s ease-in-out both; }
+        .draw-king-right.draw-animation-run { animation: draw-king-right 1.1s ease-in-out both; }
+        .draw-handshake.draw-animation-run { animation: draw-handshake .65s ease-in-out .72s both; transform-origin: center; }
+        @keyframes draw-king-left { 0% { transform: translateX(-52px); } 72%, 100% { transform: translateX(-8px); } }
+        @keyframes draw-king-right { 0% { transform: translateX(52px); } 72%, 100% { transform: translateX(8px); } }
+        @keyframes draw-handshake { 0% { opacity: 0; transform: scale(.25) rotate(-20deg); } 65% { opacity: 1; transform: scale(1.2) rotate(8deg); } 100% { opacity: 1; transform: scale(1) rotate(0); } }
+        @media (prefers-reduced-motion: reduce) {
+            .draw-king-left.draw-animation-run, .draw-king-right.draw-animation-run, .draw-handshake.draw-animation-run { animation-duration: .01ms; animation-delay: 0ms; }
+        }
 
         /* Molduras Visuais de Avatar */
         .frame-frame_oak { border: 3px solid #8b5a2b !important; box-shadow: 0 0 10px rgba(139,90,43,0.75) !important; }
@@ -989,6 +998,17 @@
         </div>
     </div>
 
+    <div id="draw-handshake-overlay" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/65 pointer-events-none" aria-hidden="true">
+        <div class="flex flex-col items-center gap-3 rounded-xl border border-amber-300/40 bg-slate-950/90 px-8 py-6 shadow-2xl">
+            <div class="flex h-24 items-center justify-center text-6xl sm:text-7xl">
+                <span class="draw-king-left text-slate-100 drop-shadow-[0_0_14px_rgba(255,255,255,.6)]">♔</span>
+                <span class="draw-handshake z-10 -mx-2 text-4xl sm:text-5xl">🤝</span>
+                <span class="draw-king-right text-amber-300 drop-shadow-[0_0_14px_rgba(251,191,36,.6)]">♚</span>
+            </div>
+            <div class="text-xl font-extrabold text-amber-200">Empate</div>
+        </div>
+    </div>
+
     <!-- MODAL DE ANÁLISE TÁTICA PÓS-PARTIDA -->
     <div id="analysis-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
         <div class="surface p-5 rounded-2xl max-w-4xl w-full flex flex-col lg:flex-row gap-5 max-h-[92vh] overflow-y-auto border border-emerald-500/40 shadow-2xl">
@@ -1112,6 +1132,7 @@
         let spectatorMode = false;
         let spectatorReturnToFriends = false;
         let spectatorGameState = null;
+        let drawAnimationTimer = null;
         let selectedFriend = null;
         let viewedPlayerName = null;
         let notificationPollInterval = null;
@@ -4007,6 +4028,9 @@
                     playerTime = playerColorChoice === 'white' ? state.white_time : state.black_time;
                     opponentTime = playerColorChoice === 'white' ? state.black_time : state.white_time;
                     updateClocks();
+                    if (state.status !== 'active') {
+                        handleGameOverState(state.winner, state.termination_reason, 0, state.rating_change || 0, state.new_rating, state.missions_completed || []);
+                    }
                 });
         }
 
@@ -4081,6 +4105,7 @@
                             const banner = document.getElementById('match-result-banner');
                             banner.innerText = `${state.termination_reason || 'Partida concluída.'} ${result}`;
                             banner.className = 'text-center font-bold text-sm min-h-6 py-1 px-2 rounded-lg text-sky-300 bg-slate-900/80 border border-sky-800';
+                            if (state.winner === 'draw') triggerDrawAnimation();
                         }
                     })
                     .catch(() => {});
@@ -4140,6 +4165,7 @@
             } else if (isDraw) {
                 banner.className = 'text-center font-bold text-sm py-2 px-3 rounded-lg text-amber-300 bg-amber-950/70 border border-amber-700 shadow';
                 playMoveSound(320, 0.25);
+                triggerDrawAnimation();
             } else {
                 banner.className = 'text-center font-bold text-sm py-2 px-3 rounded-lg text-red-400 bg-red-950/70 border border-red-700 shadow';
                 playDefeatTune();
@@ -4155,6 +4181,18 @@
                 .then(d => { if (d.success) completeLogin(d); loadMissions(); })
                 .catch(() => loadMissions());
         }
+
+            function triggerDrawAnimation() {
+                const overlay = document.getElementById('draw-handshake-overlay');
+                if (!overlay || !overlay.classList.contains('hidden')) return;
+                clearTimeout(drawAnimationTimer);
+                const animatedElements = overlay.querySelectorAll('.draw-king-left, .draw-king-right, .draw-handshake');
+                animatedElements.forEach(element => element.classList.remove('draw-animation-run'));
+                void overlay.offsetWidth;
+                animatedElements.forEach(element => element.classList.add('draw-animation-run'));
+                overlay.classList.remove('hidden');
+                drawAnimationTimer = setTimeout(() => overlay.classList.add('hidden'), 4200);
+            }
 
         function triggerSwordAnimation() {
             const overlay = document.getElementById('checkmate-sword-overlay');

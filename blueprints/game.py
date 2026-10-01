@@ -57,6 +57,21 @@ def parse_request_integer(data: dict, field: str, default: int) -> int | None:
         return int(value)
     return None
 
+def board_from_game_state(fen: str, history: list[dict]) -> chess.Board:
+    board = chess.Board()
+    try:
+        for item in history:
+            move = chess.Move.from_uci(item['uci'])
+            if move not in board.legal_moves:
+                raise ValueError('Histórico contém lance ilegal.')
+            board.push(move)
+    except (KeyError, TypeError, ValueError) as error:
+        raise ValueError('Histórico de lances inválido; não é possível validar regras dependentes de repetição.') from error
+
+    if board.fen() != fen:
+        raise ValueError('Histórico de lances não corresponde à posição atual.')
+    return board
+
 def update_initial_calibration_result(
     conn, game_type: str, white_user: str, black_user: str, bot_number: int,
     bot_rating: int, winner: str
@@ -636,7 +651,7 @@ def game_state(game_id):
 
         if status == 'active' and time_initial > 0 and last_move_time:
             elapsed = max(0.0, now - float(last_move_time))
-            board = chess.Board(fen)
+            board = board_from_game_state(fen, history)
             if turn == 'w':
                 w_time = max(0.0, white_time - elapsed)
                 if w_time <= 0 and is_participant:
@@ -765,7 +780,7 @@ def game_move(game_id):
         now = time.time()
         w_time = float(white_time)
         b_time = float(black_time)
-        board = chess.Board(fen)
+        board = board_from_game_state(fen, history)
 
         if time_initial > 0 and last_move_time:
             elapsed = max(0.0, now - float(last_move_time))
@@ -1017,7 +1032,7 @@ def game_draw_offer(game_id):
         opponent = black_user if username == white_user else white_user
 
         if game_type == 'bot':
-            board = chess.Board(fen)
+            board = board_from_game_state(fen, history)
             bot_accepts = board.is_insufficient_material() or len(board.piece_map()) <= 6 or random.random() < 0.25
             if bot_accepts:
                 reason = "Empate aceito pelo Bot por mútuo acordo."
@@ -1150,7 +1165,7 @@ def game_claim_timeout(game_id):
 
         now = time.time()
         elapsed = max(0.0, now - float(last_move_time))
-        board = chess.Board(fen)
+        board = board_from_game_state(fen, history)
 
         if turn == 'w':
             current_w_time = white_time - elapsed
