@@ -1,0 +1,715 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Capybara Chess</title>
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.5.1/dist/confetti.browser.min.js"></script>
+    <style>
+        :root {
+            --bg-dark: #1e1e1e;
+            --accent-red: #ff3333;
+            --gold: #ffd700;
+            --board-light: #f0d9b5;
+            --board-dark: #b58863;
+        }
+
+        body {
+            margin: 0;
+            background-color: var(--bg-dark);
+            color: #fff;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        /* Barra de Informações do Jogador */
+        .header-player {
+            width: 100%;
+            max-width: 600px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            background: #2a2a2a;
+            box-sizing: border-box;
+            border-bottom: 2px solid #333;
+        }
+
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* Selo C Vermelho com Tooltip */
+        .selo-c {
+            display: inline-block;
+            background-color: var(--accent-red);
+            color: white;
+            font-weight: bold;
+            border-radius: 50%;
+            width: 24px;
+            height: 24px;
+            text-align: center;
+            line-height: 24px;
+            cursor: pointer;
+            position: relative;
+        }
+
+        .selo-c:hover::after {
+            content: "Conquista do Bot Capivarão (500 ELO)";
+            position: absolute;
+            top: 30px;
+            left: 0;
+            background: #000;
+            color: #fff;
+            padding: 5px 10px;
+            font-size: 12px;
+            border-radius: 4px;
+            white-space: nowrap;
+            z-index: 10;
+        }
+
+        /* Tabuleiro */
+        .chess-container {
+            position: relative;
+            margin: 20px 0;
+        }
+
+        #board {
+            width: 90vw;
+            max-width: 480px;
+            height: 90vw;
+            max-height: 480px;
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            grid-template-rows: repeat(8, 1fr);
+            border: 4px solid #404040;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.5);
+        }
+
+        .square {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 36px;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        .square.white { background-color: var(--board-light); }
+        .square.black { background-color: var(--board-dark); }
+        .square.selected { background-color: #7b61ff !important; }
+
+        /* Mensagem de Lance Ilegal em Vermelho */
+        #illegal-move-toast {
+            display: none;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(255, 0, 0, 0.92);
+            color: white;
+            font-weight: bold;
+            font-size: 22px;
+            padding: 15px 30px;
+            border-radius: 8px;
+            box-shadow: 0 0 15px rgba(255, 0, 0, 0.6);
+            z-index: 20;
+            animation: shake 0.3s ease-in-out;
+        }
+
+        /* Animação de Xeque-mate */
+        #checkmate-overlay {
+            display: none;
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            z-index: 30;
+            animation: popIn 0.5s ease-out forwards;
+        }
+
+        #checkmate-overlay h1 {
+            color: var(--gold);
+            font-size: 48px;
+            margin: 0;
+            text-shadow: 0 0 20px var(--gold);
+        }
+
+        /* Painel Lateral / Inferior */
+        .controls {
+            width: 90vw;
+            max-width: 480px;
+            display: flex;
+            gap: 10px;
+            justify-content: space-between;
+        }
+
+        button {
+            background: #444;
+            color: #fff;
+            border: none;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+        }
+
+        button:hover { background: #555; }
+
+        .emotes-bar {
+            margin-top: 15px;
+            display: flex;
+            gap: 15px;
+        }
+
+        .emote-btn {
+            font-size: 24px;
+            background: #222;
+            border: 1px solid #444;
+            border-radius: 50%;
+            width: 45px;
+            height: 45px;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translate(-50%, -50%); }
+            25% { transform: translate(-55%, -50%); }
+            75% { transform: translate(-45%, -50%); }
+        }
+
+        @keyframes popIn {
+            0% { transform: scale(0); opacity: 0; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Header do Usuário -->
+    <div class="header-player">
+        <div class="user-info">
+            <span id="player-nick">Jogador</span>
+            <span id="selo-display" class="selo-c" style="display: none;">C</span>
+        </div>
+        <div>
+            🪙 <span id="camarcoin-balance">100</span> Camarcoins
+        </div>
+    </div>
+
+    <!-- Tabuleiro e Overlays de Alerta -->
+    <div class="chess-container">
+        <div id="illegal-move-toast">LANCE ILEGAL</div>
+        
+        <div id="checkmate-overlay">
+            <h1>XEQUE-MATE!</h1>
+            <p id="winner-text">Fim de partida</p>
+            <button onclick="fecharCheckmate()">Continuar</button>
+        </div>
+
+        <div id="board"></div>
+    </div>
+
+    <!-- Controles da Partida -->
+    <div class="controls">
+        <button onclick="copiarPGN()">Copiar PGN</button>
+        <button onclick="desfazerVisual()">Voltar Lances</button>
+    </div>
+
+    <!-- Barra de Emotes de Espectadores (3 Camarcoins) -->
+    <div class="emotes-bar">
+        <button class="emote-btn" onclick="enviarEmote('😡')">😡</button>
+        <button class="emote-btn" onclick="enviarEmote('😁')">😁</button>
+        <button class="emote-btn" onclick="enviarEmote('😢')">😢</button>
+    </div>
+
+    <script>
+        const ws = new WebSocket("ws://localhost:8000/ws/partida/sala_123/user_01");
+        let selectedSquare = null;
+        let boardState = [
+            ["r","n","b","q","k","b","n","r"],
+            ["p","p","p","p","p","p","p","p"],
+            ["","","","","","","",""],
+            ["","","","","","","",""],
+            ["","","","","","","",""],
+            ["","","","","","","",""],
+            ["P","P","P","P","P","P","P","P"],
+            ["R","N","B","Q","K","B","N","R"]
+        ];
+
+        const unicodePieces = {
+            'r': '♜', 'n': '♞', 'b': '♝', 'q': '♛', 'k': '♚', 'p': '♟',
+            'R': '♖', 'N': '♘', 'B': '♗', 'Q': '♕', 'K': '♔', 'P': '♙'
+        };
+
+        // Renderiza o tabuleiro na tela
+        function renderBoard() {
+            const boardEl = document.getElementById("board");
+            boardEl.innerHTML = "";
+            for (let r = 0; r < 8; r++) {
+                for (let c = 0; c < 8; c++) {
+                    const square = document.createElement("div");
+                    square.className = `square ${(r + c) % 2 === 0 ? "white" : "black"}`;
+                    square.dataset.row = r;
+                    square.dataset.col = c;
+                    
+                    const piece = boardState[r][c];
+                    if (piece) square.innerText = unicodePieces[piece] || piece;
+
+                    square.addEventListener("click", () => handleSquareClick(r, c));
+                    boardEl.appendChild(square);
+                }
+            }
+        }
+
+        // Lógica de seleção e envio do lance via WebSocket
+        function handleSquareClick(r, c) {
+            if (!selectedSquare) {
+                if (boardState[r][c] !== "") {
+                    selectedSquare = { r, c };
+                }
+            } else {
+                const orig = String.fromCharCode(97 + selectedSquare.c) + (8 - selectedSquare.r);
+                const dest = String.fromCharCode(97 + c) + (8 - r);
+                const uciMove = orig + dest;
+
+                // Envia tentativa de lance para o backend validar
+                ws.send(JSON.stringify({ tipo: "lance", lance: uciMove }));
+                selectedSquare = null;
+            }
+        }
+
+        // Escuta eventos vindos do Servidor WebSocket
+        ws.onmessage = (event) => {
+            const data = JSON.parse(event.data);
+
+            if (data.tipo === "erro_lance") {
+                exibirLanceIlegal();
+            } 
+            else if (data.tipo === "lance_executado") {
+                if (data.checkmate) {
+                    dispararXequeMate();
+                }
+            } 
+            else if (data.tipo === "conquista_desbloqueada") {
+                dispararConfetes();
+            }
+        };
+
+        // Notificação de Lance Ilegal
+        function exibirLanceIlegal() {
+            const toast = document.getElementById("illegal-move-toast");
+            toast.style.display = "block";
+            // Toca efeito sonoro de erro
+            new Audio('https://actions.google.com/sounds/v1/alarms/beep_short.ogg').play();
+            setTimeout(() => { toast.style.display = "none"; }, 1200);
+        }
+
+        // Animação de Xeque-mate
+        function dispararXequeMate() {
+            document.getElementById("checkmate-overlay").style.display = "flex";
+            new Audio('https://actions.google.com/sounds/v1/cartoon/clapper_board.ogg').play();
+        }
+
+        function fecharCheckmate() {
+            document.getElementById("checkmate-overlay").style.display = "none";
+        }
+
+        // Disparo de Confetes para Conquistas de Selos
+        function dispararConfetes() {
+            confetti({
+                particleCount: 120,
+                spread: 70,
+                origin: { y: 0.6 }
+            });
+            new Audio('https://actions.google.com/sounds/v1/human_voices/applause.ogg').play();
+        }
+
+        // Copiar PGN
+        function copiarPGN() {
+            navigator.clipboard.writeText("1. e4 e5 2. Qh5 Nc6 3. Bc4 Nf6 4. Qxf7#");
+            alert("PGN copiado para a área de transferência!");
+        }
+
+        // Enviar Emote de Espectador
+        function enviarEmote(emoji) {
+            ws.send(JSON.stringify({ tipo: "emote", emoji: emoji }));
+        }
+
+        renderBoard();
+    </script>
+</body>
+</html>
+<!-- Componente da Tela de Bots (Capybara) -->
+<div class="bots-selection-container">
+    <div class="header-section">
+        <h2>Medir Força contra os Bots</h2>
+        <p class="subtitle">Escolha um dos 5 primeiros bots para definir seu rating inicial de entrada.</p>
+    </div>
+
+    <!-- Seletor de Peças e Ritmo -->
+    <div class="match-settings">
+        <div class="setting-group">
+            <label>Jogar de:</label>
+            <select id="bot-color-select">
+                <option value="brancas">Brancas (♔)</option>
+                <option value="pretas">Pretas (♚)</option>
+                <option value="aleatorio" selected>Aleatório (🎲)</option>
+            </select>
+        </div>
+
+        <div class="setting-group">
+            <label>Tempo / Ritmo:</label>
+            <select id="bot-time-select">
+                <option value="3+2" selected>3/2 (Padrão Calibração)</option>
+                <option value="1+0">1+0 (Bullet)</option>
+                <option value="3+0">3+0 (Blitz)</option>
+                <option value="10+0">10+0 (Rápida)</option>
+            </select>
+        </div>
+    </div>
+
+    <!-- Grid dos 11 Bots -->
+    <div class="bots-grid" id="bots-grid"></div>
+</div>
+
+<style>
+    .bots-selection-container {
+        max-width: 800px;
+        margin: 20px auto;
+        padding: 20px;
+        background: #262626;
+        border-radius: 12px;
+        color: #fff;
+    }
+    .match-settings {
+        display: flex;
+        gap: 20px;
+        background: #1e1e1e;
+        padding: 15px;
+        border-radius: 8px;
+        margin-bottom: 20px;
+    }
+    .setting-group {
+        display: flex;
+        flex-direction: column;
+        gap: 5px;
+    }
+    .setting-group select {
+        background: #333;
+        color: #fff;
+        border: 1px solid #555;
+        padding: 8px;
+        border-radius: 5px;
+    }
+    .bots-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 15px;
+    }
+    .bot-card {
+        background: #333;
+        border: 2px solid #444;
+        border-radius: 8px;
+        padding: 15px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        text-align: center;
+        position: relative;
+    }
+    .bot-card.calibravel {
+        border-color: #ffd700;
+    }
+    .bot-badge-tag {
+        position: absolute;
+        top: 10px;
+        right: 10px;
+        font-weight: bold;
+        font-size: 12px;
+        padding: 2px 6px;
+        border-radius: 4px;
+    }
+    .badge-C { background: #ff3333; color: white; }
+    .badge-SP { background: #ffd700; color: black; }
+    .badge-ST { background: #00e676; color: black; }
+    .btn-desafiar {
+        margin-top: 10px;
+        width: 100%;
+        background: #ff3333;
+        color: white;
+        border: none;
+        padding: 8px;
+        border-radius: 5px;
+        font-weight: bold;
+        cursor: pointer;
+    }
+</style>
+
+<script>
+    const listaBots = [
+        { id: 1, nome: "Capivarão", rating: 500, titulo: "", selo: "C", calibravel: true },
+        { id: 2, nome: "Pirata", rating: 1000, titulo: "", selo: "P", calibravel: true },
+        { id: 3, nome: "Marinheiro", rating: 1500, titulo: "", selo: "M", calibravel: true },
+        { id: 4, nome: "Governador", rating: 2000, titulo: "", selo: "G", calibravel: true },
+        { id: 5, nome: "Imperador", rating: 2150, titulo: "", selo: "I", calibravel: true },
+        { id: 6, nome: "Pedro", rating: 2300, titulo: "Mestre Nacional", selo: "NM", calibravel: false },
+        { id: 7, nome: "Dill", rating: 2400, titulo: "Mestre FIDE", selo: "FM", calibravel: false },
+        { id: 8, nome: "Erick", rating: 2500, titulo: "Mestre Internacional", selo: "IM", calibravel: false },
+        { id: 9, nome: "Anonimus", rating: 2700, titulo: "Grande Mestre", selo: "GM", calibravel: false },
+        { id: 10, nome: "Super GM Camargo", rating: 2850, titulo: "Super GM", selo: "SP", calibravel: false },
+        { id: 11, nome: "Fish", rating: 3000, titulo: "Stockfish Engine", selo: "ST", calibravel: false }
+    ];
+
+    function renderizarBots() {
+        const grid = document.getElementById("bots-grid");
+        grid.innerHTML = "";
+
+        listaBots.forEach(bot => {
+            const card = document.createElement("div");
+            card.className = `bot-card ${bot.calibravel ? 'calibravel' : ''}`;
+            
+            card.innerHTML = `
+                <span class="bot-badge-tag badge-${bot.selo}">${bot.selo}</span>
+                <h3>${bot.nome}</h3>
+                <p style="color:#aaa; font-size:12px;">${bot.titulo || 'Desafiante'}</p>
+                <div style="font-size:20px; font-weight:bold; margin: 10px 0;">⚡ ${bot.rating} ELO</div>
+                <small style="color:${bot.calibravel ? '#ffd700' : '#888'};">
+                    ${bot.calibravel ? 'Apto para Calibração' : 'Apenas Desafio Apoiado'}
+                </small>
+                <button class="btn-desafiar" onclick="iniciarMatchBot(${bot.id})">ENFRENTAR</button>
+            `;
+            grid.appendChild(card);
+        });
+    }
+
+    function iniciarMatchBot(botId) {
+        const cor = document.getElementById("bot-color-select").value;
+        const tempo = document.getElementById("bot-time-select").value;
+
+        fetch("/api/bot/desafiar", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ bot_id: botId, cor: cor, ritmo: tempo })
+        }).then(res => res.json()).then(data => {
+            alert(data.mensagem);
+        });
+    }
+
+    renderizarBots();
+</script>
+<div class="social-container">
+    <!-- Bloco 1: Adicionar Amigos e Chat -->
+    <div class="card-social">
+        <h3>👥 Amigos & Conversas</h3>
+        <div class="input-inline">
+            <input type="text" id="amigo-nick-input" placeholder="Digite o Nick do amigo...">
+            <button onclick="enviarPedidoAmizade()">Adicionar</button>
+        </div>
+        <div id="lista-amigos" class="friends-list"></div>
+    </div>
+
+    <!-- Bloco 2: Criar Link para Redes Sociais -->
+    <div class="card-social">
+        <h3>🔗 Desafiar por Link Externo</h3>
+        <p>Crie um link e envie no WhatsApp/Redes Sociais. O primeiro a clicar jogará com você!</p>
+        
+        <label>Ritmo Customizado:</label>
+        <select id="ritmo-custom-select">
+            <option value="1+0">Bullet (1+0)</option>
+            <option value="3+2" selected>Blitz (3+2)</option>
+            <option value="10+0">Rápida (10+0)</option>
+            <option value="5+3">Personalizado (5+3)</option>
+        </select>
+
+        <button class="btn-gerar-link" onclick="criarLinkCompartilhavel()">Gerar Link de Desafio</button>
+        
+        <div id="link-resultado" style="display:none; margin-top: 15px;">
+            <input type="text" id="url-gerada-input" readonly>
+            <button onclick="copiarLinkRedes()">Copiar Link</button>
+        </div>
+    </div>
+</div>
+
+<style>
+    .social-container {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+        gap: 20px;
+        max-width: 800px;
+        margin: 20px auto;
+        color: white;
+    }
+    .card-social {
+        background: #2a2a2a;
+        padding: 20px;
+        border-radius: 10px;
+        border: 1px solid #444;
+    }
+    .input-inline {
+        display: flex;
+        gap: 10px;
+        margin-bottom: 15px;
+    }
+    .input-inline input, select {
+        flex: 1;
+        padding: 8px;
+        background: #1e1e1e;
+        border: 1px solid #555;
+        color: white;
+        border-radius: 5px;
+    }
+    .btn-gerar-link {
+        width: 100%;
+        background: #00e676;
+        color: black;
+        font-weight: bold;
+        padding: 10px;
+        border: none;
+        border-radius: 5px;
+        margin-top: 10px;
+        cursor: pointer;
+    }
+</style>
+
+<script>
+    function criarLinkCompartilhavel() {
+        const ritmo = document.getElementById("ritmo-custom-select").value;
+        
+        fetch("/social/gerar_link_desafio", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                desafiante_id: "user_atual",
+                ritmo_customizado: ritmo,
+                modo: "ranqueado"
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById("link-resultado").style.display = "block";
+            document.getElementById("url-gerada-input").value = data.url_compartilhavel;
+        });
+    }
+
+    function copiarLinkRedes() {
+        const inputUrl = document.getElementById("url-gerada-input");
+        inputUrl.select();
+        navigator.clipboard.writeText(inputUrl.value);
+        alert("Link copiado! Mande para seus amigos ou nas redes sociais.");
+    }
+</script>
+<div class="matchmaking-panel">
+    <h3>⚔️ Jogar Online (Ranqueado / Clássico)</h3>
+    
+    <!-- Seleção de Modo -->
+    <div class="field-group">
+        <label>Modo de Jogo:</label>
+        <select id="mm-modo">
+            <option value="ranqueado" selected>Ranqueado (Ganha Selos e Camarcoins)</option>
+            <option value="classico">Clássico (Apenas Rating)</option>
+        </select>
+    </div>
+
+    <!-- Seleção de Ritmos -->
+    <div class="field-group">
+        <label>Ritmo de Tempo:</label>
+        <select id="mm-ritmo">
+            <optgroup label="Bullet">
+                <option value="1+0">1+0</option>
+                <option value="1+1">1+1</option>
+            </optgroup>
+            <optgroup label="Blitz">
+                <option value="3+0">3+0</option>
+                <option value="3+2" selected>3+2</option>
+            </optgroup>
+            <optgroup label="Rápidas">
+                <option value="10+0">10+0</option>
+                <option value="10+3">10+3</option>
+            </optgroup>
+            <option value="aleatorio">🎲 Ritmo Aleatório</option>
+        </select>
+    </div>
+
+    <!-- Filtro de Faixa Etária / Rating -->
+    <div class="field-group">
+        <label>Diferença Máxima de Rating (Máx: 400 ELO):</label>
+        <input type="range" id="mm-elo-range" min="50" max="400" step="50" value="200" oninput="atualizarLabelElo(this.value)">
+        <span id="elo-range-val">±200 ELO</span>
+    </div>
+
+    <button class="btn-buscar-partida" onclick="iniciarBuscaMatchmaking()">BUSCAR OPONENTE</button>
+</div>
+
+<style>
+    .matchmaking-panel {
+        background: #252525;
+        border: 1px solid #3d3d3d;
+        padding: 20px;
+        border-radius: 10px;
+        max-width: 450px;
+        margin: 20px auto;
+        color: white;
+    }
+    .field-group {
+        display: flex;
+        flex-direction: column;
+        gap: 8px;
+        margin-bottom: 15px;
+    }
+    .field-group select, input[type="range"] {
+        padding: 8px;
+        background: #181818;
+        border: 1px solid #444;
+        color: white;
+        border-radius: 5px;
+    }
+    .btn-buscar-partida {
+        width: 100%;
+        background: #ff3333;
+        color: white;
+        font-weight: bold;
+        padding: 12px;
+        border: none;
+        border-radius: 6px;
+        cursor: pointer;
+        font-size: 16px;
+    }
+    .btn-buscar-partida:hover { background: #cc0000; }
+</style>
+
+<script>
+    function atualizarLabelElo(val) {
+        document.getElementById("elo-range-val").innerText = `±${val} ELO`;
+    }
+
+    function iniciarBuscaMatchmaking() {
+        const modo = document.getElementById("mm-modo").value;
+        const ritmo = document.getElementById("mm-ritmo").value;
+        const diffElo = document.getElementById("mm-elo-range").value;
+
+        fetch("/sistema/entrar_fila", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                username: "usuario_logado",
+                modo: modo,
+                ritmo_escolhido: ritmo,
+                diferenca_maxima_rating: parseInt(diffElo)
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            alert(data.mensagem || `Status: ${data.status}`);
+        });
+    }
+</script>

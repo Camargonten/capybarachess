@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="bg_pedro" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#0f766e"/>
+      <stop offset="100%" stop-color="#042f2e"/>
+    </radialGradient>
+  </defs>
+  <rect width="100" height="100" fill="url(#bg_pedro)"/>
+  <circle cx="50" cy="42" r="20" fill="#fcd34d" stroke="#d97706" stroke-width="2"/>
+  <!-- Cabelo moderno -->
+  <path d="M 30 38 Q 50 16 70 38 Q 66 24 50 24 Q 34 24 30 38 Z" fill="#451a03"/>
+  <circle cx="43" cy="42" r="2.5" fill="#18181b"/>
+  <circle cx="57" cy="42" r="2.5" fill="#18181b"/>
+  <path d="M 46 51 Q 50 54 54 51" stroke="#b45309" stroke-width="2" fill="none"/>
+  <!-- Terno e Medalha NM -->
+  <path d="M 22 88 L 36 62 L 64 62 L 78 88 Z" fill="#1e293b"/>
+  <circle cx="50" cy="74" r="7" fill="#eab308" stroke="#ca8a04" stroke-width="1.5"/>
+  <text x="50" y="77" font-size="6" font-weight="900" font-family="sans-serif" text-anchor="middle" fill="#713f12">NM</text>
+</svg>

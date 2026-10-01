@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs>
+    <radialGradient id="bg_gm" cx="50%" cy="30%" r="70%">
+      <stop offset="0%" stop-color="#b45309"/>
+      <stop offset="100%" stop-color="#18181b"/>
+    </radialGradient>
+  </defs>
+  <rect width="100" height="100" fill="url(#bg_gm)"/>
+  <!-- Coroa de Rei de Xadrez com Louros -->
+  <circle cx="50" cy="50" r="36" fill="#18181b" stroke="#eab308" stroke-width="3"/>
+  <path d="M 36 64 L 40 40 L 46 50 L 50 34 L 54 50 L 60 40 L 64 64 Z" fill="#eab308" stroke="#ca8a04" stroke-width="2"/>
+  <rect x="36" y="64" width="28" height="6" fill="#ca8a04"/>
+  <circle cx="50" cy="32" r="2.5" fill="#ffffff"/>
+  <text x="50" y="85" font-size="8" font-weight="900" font-family="sans-serif" text-anchor="middle" fill="#eab308">GM</text>
+</svg>

@@ -1,0 +1,7 @@
+Flask
+Authlib
+requests
+python-dotenv
+gunicorn
+stockfish
+python-chess

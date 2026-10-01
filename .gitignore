@@ -1,0 +1,31 @@
+# Variáveis e segredos de ambiente
+.env
+.env.*
+!.env.example
+
+# Bancos de dados locais
+*.db
+*.db-shm
+*.db-wal
+capybara.db
+
+# Caches do Python
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# Ambientes virtuais
+venv/
+venv.*/
+.venv/
+env/
+pyvenv.cfg
+lib/
+lib64
+include/
+
+# Logs e sessões
+*.log
+.DS_Store
+
