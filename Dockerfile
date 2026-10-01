@@ -8,6 +8,7 @@ WORKDIR /app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends stockfish \
+    && chmod +x /usr/games/stockfish \
     && test -x /usr/games/stockfish \
     && rm -rf /var/lib/apt/lists/*
 
