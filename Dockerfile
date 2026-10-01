@@ -10,9 +10,13 @@ WORKDIR /app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends stockfish \
+    && ln -sf /usr/games/stockfish /usr/bin/stockfish \
     && chmod 755 /usr/games/stockfish \
+    && chmod +x /usr/bin/stockfish \
     && ln -sf /usr/games/stockfish /usr/local/bin/stockfish \
+    && chmod +x /usr/local/bin/stockfish \
     && test -x /usr/local/bin/stockfish \
+    && test -x /usr/bin/stockfish \
     && printf 'uci\nquit\n' | /usr/local/bin/stockfish | grep -q '^uciok$' \
     && rm -rf /var/lib/apt/lists/*
 

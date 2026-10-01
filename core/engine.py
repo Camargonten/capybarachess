@@ -4,7 +4,7 @@ from subprocess import TimeoutExpired
 from threading import BoundedSemaphore
 import chess
 import chess.engine
-from core.config import STOCKFISH_PATH
+from core.config import STOCKFISH_CANDIDATES
 
 logger = logging.getLogger("capybara_engine")
 
@@ -214,13 +214,27 @@ def get_bot_move_fide(board: chess.Board, bot_rating: int, remaining_time: float
     profile = get_bot_strength_profile(bot_rating)
     fast = remaining_time is not None and remaining_time <= 10
     think_time_ms = 1 if fast else profile['think_time_ms']
-    if not STOCKFISH_PATH:
-        raise RuntimeError("Stockfish não está instalado ou não tem permissão de execução.")
+    if not STOCKFISH_CANDIDATES:
+        error = RuntimeError("Stockfish não está instalado ou não tem permissão de execução.")
+        logger.error("Nenhum binário Stockfish executável encontrado nos caminhos conhecidos.")
+        raise error
 
     try:
         with _engine_slots:
             timeout_seconds = max(5.0, think_time_ms / 1000 + 5.0)
-            engine = _open_simple_engine(STOCKFISH_PATH, timeout_seconds)
+            engine = None
+            startup_errors = []
+            for candidate in STOCKFISH_CANDIDATES:
+                try:
+                    engine = _open_simple_engine(candidate, timeout_seconds)
+                    break
+                except Exception as error:
+                    startup_errors.append((candidate, error))
+                    logger.exception("Falha ao iniciar Stockfish em %s", candidate)
+            if engine is None:
+                details = '; '.join(f'{path}: {error!r}' for path, error in startup_errors)
+                raise RuntimeError(f"Não foi possível iniciar Stockfish em nenhum caminho: {details}") from (startup_errors[-1][1] if startup_errors else None)
+
             try:
                 if profile['level'] <= 6:
                     engine.configure({
@@ -246,5 +260,5 @@ def get_bot_move_fide(board: chess.Board, bot_rating: int, remaining_time: float
             finally:
                 _shutdown_simple_engine(engine)
     except Exception as error:
-        logger.error("Falha ao calcular lance com Stockfish: %s", error)
+        logger.exception("Falha ao calcular lance com Stockfish.")
         raise RuntimeError("O motor Stockfish não conseguiu calcular um lance.") from error

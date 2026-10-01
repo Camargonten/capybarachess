@@ -40,9 +40,10 @@ if APP_ENV == 'production':
             raise RuntimeError('O diretório configurado em DATABASE_PATH não permite escrita.')
 COOKIE_SECURE = os.environ.get('COOKIE_SECURE', str(APP_ENV == 'production')).lower() == 'true'
 
-def resolve_stockfish_path(configured_path: str | None = None) -> str | None:
-    candidates = [configured_path, '/usr/local/bin/stockfish', '/usr/games/stockfish', '/usr/bin/stockfish', shutil.which('stockfish')]
+def resolve_stockfish_candidates(configured_path: str | None = None) -> tuple[str, ...]:
+    candidates = ['/usr/games/stockfish', '/usr/bin/stockfish', configured_path, shutil.which('stockfish')]
     seen = set()
+    resolved_candidates = []
     for candidate in candidates:
         if not candidate:
             continue
@@ -50,12 +51,14 @@ def resolve_stockfish_path(configured_path: str | None = None) -> str | None:
         if not resolved or resolved in seen:
             continue
         seen.add(resolved)
-        resolved = os.path.realpath(resolved)
-        if os.path.isfile(resolved) and os.access(resolved, os.X_OK):
-            return resolved
-    return None
+        real_path = os.path.realpath(resolved)
+        if os.path.isfile(real_path) and os.access(real_path, os.X_OK):
+            if resolved not in resolved_candidates:
+                resolved_candidates.append(resolved)
+    return tuple(resolved_candidates)
 
-STOCKFISH_PATH = resolve_stockfish_path(os.environ.get('STOCKFISH_PATH'))
+STOCKFISH_CANDIDATES = resolve_stockfish_candidates(os.environ.get('STOCKFISH_PATH'))
+STOCKFISH_PATH = STOCKFISH_CANDIDATES[0] if STOCKFISH_CANDIDATES else None
 if APP_ENV == 'production' and not STOCKFISH_PATH:
     raise RuntimeError('Stockfish não foi encontrado como arquivo executável; configure STOCKFISH_PATH no ambiente de produção.')
 
