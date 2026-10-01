@@ -19,4 +19,4 @@ services:
       - key: DATABASE_PATH
         value: /tmp/capybara.db
       - key: STOCKFISH_PATH
-        value: /usr/games/stockfish
+        value: /usr/local/bin/stockfish

@@ -66,7 +66,7 @@
 ### Publicação no Render: configurada para teste online
 
 - [x] Mantido plano `free` com SQLite em `DATABASE_PATH=/tmp/capybara.db`; banco, fila e estado social são efêmeros e podem se perder em reinicializações/deploys.
-- [x] Alterado o serviço para runtime Docker; o `Dockerfile` instala dependência Debian Stockfish e confirma o executável em `/usr/games/stockfish` durante o build.
+- [x] Alterado o serviço para runtime Docker; o `Dockerfile` instala a dependência Debian Stockfish, aplica modo `755` em `/usr/games/stockfish`, configura o caminho estável `/usr/local/bin/stockfish` e valida handshake UCI durante o build.
 - [x] `render.yaml` configura `STOCKFISH_PATH`, `DATABASE_PATH`, healthcheck `/health` e Gunicorn com um worker/quatro threads, sem disco pago.
 
 ### Auditoria de concorrência e espectador

@@ -41,9 +41,7 @@ if APP_ENV == 'production':
 COOKIE_SECURE = os.environ.get('COOKIE_SECURE', str(APP_ENV == 'production')).lower() == 'true'
 
 def resolve_stockfish_path(configured_path: str | None = None) -> str | None:
-    candidates = [configured_path] if configured_path else [
-        '/usr/games/stockfish', '/usr/bin/stockfish', shutil.which('stockfish')
-    ]
+    candidates = [configured_path, '/usr/local/bin/stockfish', '/usr/games/stockfish', '/usr/bin/stockfish', shutil.which('stockfish')]
     seen = set()
     for candidate in candidates:
         if not candidate:
@@ -52,6 +50,7 @@ def resolve_stockfish_path(configured_path: str | None = None) -> str | None:
         if not resolved or resolved in seen:
             continue
         seen.add(resolved)
+        resolved = os.path.realpath(resolved)
         if os.path.isfile(resolved) and os.access(resolved, os.X_OK):
             return resolved
     return None

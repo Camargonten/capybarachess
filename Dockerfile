@@ -4,14 +4,16 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HOME=/tmp \
     DATABASE_PATH=/tmp/capybara.db \
-    STOCKFISH_PATH=/usr/games/stockfish
+    STOCKFISH_PATH=/usr/local/bin/stockfish
 
 WORKDIR /app
 
 RUN apt-get update \
     && apt-get install -y --no-install-recommends stockfish \
-    && chmod +x /usr/games/stockfish \
-    && test -x /usr/games/stockfish \
+    && chmod 755 /usr/games/stockfish \
+    && ln -sf /usr/games/stockfish /usr/local/bin/stockfish \
+    && test -x /usr/local/bin/stockfish \
+    && printf 'uci\nquit\n' | /usr/local/bin/stockfish | grep -q '^uciok$' \
     && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt ./
