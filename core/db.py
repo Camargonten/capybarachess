@@ -4,9 +4,10 @@ from contextlib import contextmanager
 from core.config import DATABASE_PATH
 
 def get_db_connection():
-    os.makedirs(os.path.dirname(DATABASE_PATH), exist_ok=True)
-    if not os.access(os.path.dirname(DATABASE_PATH), os.W_OK):
-        raise PermissionError(f"O diretório do banco SQLite não permite escrita: {os.path.dirname(DATABASE_PATH)}")
+    database_directory = os.path.dirname(DATABASE_PATH) or '.'
+    os.makedirs(database_directory, exist_ok=True)
+    if not os.access(database_directory, os.W_OK):
+        raise PermissionError(f"O diretório do banco SQLite não permite escrita: {database_directory}")
     conn = sqlite3.connect(DATABASE_PATH, timeout=10.0)
     conn.row_factory = sqlite3.Row
     conn.execute("PRAGMA journal_mode = WAL")

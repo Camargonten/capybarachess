@@ -1,5 +1,7 @@
 FROM python:3.14-slim-bookworm
 
+ENV PATH="/usr/games:${PATH}"
+
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     HOME=/tmp \
@@ -9,16 +11,18 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
 WORKDIR /app
 
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends stockfish \
+    && apt-get install -y stockfish \
     && ln -sf /usr/games/stockfish /usr/bin/stockfish \
-    && chmod 755 /usr/games/stockfish \
-    && chmod +x /usr/bin/stockfish \
     && ln -sf /usr/games/stockfish /usr/local/bin/stockfish \
-    && chmod +x /usr/local/bin/stockfish \
+    && rm -rf /var/lib/apt/lists/*
+
+RUN chmod +x /usr/games/stockfish || true
+RUN chmod +x /usr/bin/stockfish || true
+
+RUN test -x /usr/games/stockfish \
     && test -x /usr/local/bin/stockfish \
     && test -x /usr/bin/stockfish \
-    && printf 'uci\nquit\n' | /usr/local/bin/stockfish | grep -q '^uciok$' \
-    && rm -rf /var/lib/apt/lists/*
+    && printf 'uci\nquit\n' | /usr/local/bin/stockfish | grep -q '^uciok$'
 
 COPY requirements.txt ./
 RUN pip install --no-cache-dir -r requirements.txt

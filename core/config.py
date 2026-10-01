@@ -41,7 +41,13 @@ if APP_ENV == 'production':
 COOKIE_SECURE = os.environ.get('COOKIE_SECURE', str(APP_ENV == 'production')).lower() == 'true'
 
 def resolve_stockfish_candidates(configured_path: str | None = None) -> tuple[str, ...]:
-    candidates = ['/usr/games/stockfish', '/usr/bin/stockfish', configured_path, shutil.which('stockfish')]
+    candidates = [
+        configured_path,
+        shutil.which('stockfish'),
+        '/usr/games/stockfish',
+        '/usr/bin/stockfish',
+        'stockfish',
+    ]
     seen = set()
     resolved_candidates = []
     for candidate in candidates:
@@ -53,8 +59,7 @@ def resolve_stockfish_candidates(configured_path: str | None = None) -> tuple[st
         seen.add(resolved)
         real_path = os.path.realpath(resolved)
         if os.path.isfile(real_path) and os.access(real_path, os.X_OK):
-            if resolved not in resolved_candidates:
-                resolved_candidates.append(resolved)
+            resolved_candidates.append(resolved)
     return tuple(resolved_candidates)
 
 STOCKFISH_CANDIDATES = resolve_stockfish_candidates(os.environ.get('STOCKFISH_PATH'))

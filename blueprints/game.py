@@ -308,8 +308,8 @@ def game_create():
             if white_user == bot_name:
                 try:
                     bot_uci, _ = get_bot_move_fide(board, bot_rating, remaining_time=float(time_initial))
-                except RuntimeError as error:
-                    return jsonify({"error": str(error)}), 503
+                except RuntimeError:
+                    return jsonify({"error": "O motor de xadrez está temporariamente indisponível."}), 503
                 if bot_uci:
                     bot_move_obj = chess.Move.from_uci(bot_uci)
                     san = board.san(bot_move_obj)
@@ -829,8 +829,8 @@ def game_move(game_id):
             bot_time = w_time if board.turn == chess.WHITE else b_time
             try:
                 bot_uci, think_ms = get_bot_move_fide(board, bot_rating, remaining_time=bot_time)
-            except RuntimeError as error:
-                return jsonify({"error": str(error)}), 503
+            except RuntimeError:
+                return jsonify({"error": "O motor de xadrez está temporariamente indisponível."}), 503
             if bot_uci:
                 bot_obj = chess.Move.from_uci(bot_uci)
                 bot_san = board.san(bot_obj)
@@ -1212,4 +1212,4 @@ def bot_move():
         move_uci, think_ms = get_bot_move_fide(b, bot_rating)
         return jsonify({"move": move_uci, "think_time_ms": think_ms})
     except Exception as e:
-        return jsonify({"error": str(e)}), 500
+        return jsonify({"error": "O motor de xadrez está temporariamente indisponível."}), 503
