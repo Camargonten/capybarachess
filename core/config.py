@@ -1,6 +1,7 @@
 import os
 import secrets
 import shutil
+import warnings
 from dotenv import load_dotenv
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -21,8 +22,22 @@ if APP_ENV == 'production':
     if not configured_database_path or not os.path.isabs(configured_database_path):
         raise RuntimeError('DATABASE_PATH deve apontar para um caminho absoluto.')
     database_directory = os.path.dirname(configured_database_path)
-    if not os.path.isdir(database_directory) or not os.access(database_directory, os.W_OK):
-        raise RuntimeError('O diretório configurado em DATABASE_PATH não existe ou não permite escrita.')
+    try:
+        os.makedirs(database_directory, exist_ok=True)
+    except OSError as error:
+        if os.environ.get('RENDER', '').lower() != 'true':
+            raise RuntimeError('O diretório configurado em DATABASE_PATH não pode ser criado.') from error
+        database_directory = '/tmp'
+        DATABASE_PATH = os.path.join(database_directory, 'capybara.db')
+        warnings.warn('DATABASE_PATH não é gravável no Render; usando /tmp/capybara.db.', RuntimeWarning)
+    database_file_writable = not os.path.exists(DATABASE_PATH) or os.access(DATABASE_PATH, os.W_OK)
+    if not os.access(database_directory, os.W_OK) or not database_file_writable:
+        if os.environ.get('RENDER', '').lower() == 'true':
+            database_directory = '/tmp'
+            DATABASE_PATH = os.path.join(database_directory, 'capybara.db')
+            warnings.warn('DATABASE_PATH não é gravável no Render; usando /tmp/capybara.db.', RuntimeWarning)
+        else:
+            raise RuntimeError('O diretório configurado em DATABASE_PATH não permite escrita.')
 COOKIE_SECURE = os.environ.get('COOKIE_SECURE', str(APP_ENV == 'production')).lower() == 'true'
 
 def resolve_stockfish_path(configured_path: str | None = None) -> str | None:
