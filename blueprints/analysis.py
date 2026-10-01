@@ -6,6 +6,12 @@ from core.security import rate_limit, validate_fen, validate_uci_move
 
 analysis_bp = Blueprint('analysis', __name__)
 
+def _evaluation_as_white_cp(evaluation):
+    value = int(evaluation.get('value', 0))
+    if evaluation.get('type') == 'mate':
+        return (100000 - abs(value)) * (1 if value > 0 else -1)
+    return value
+
 @analysis_bp.route('/analyze_position', methods=['POST'])
 @rate_limit(max_requests=30, window_seconds=60)
 def analyze_position():
@@ -19,6 +25,7 @@ def analyze_position():
 
     try:
         engine = Stockfish(path=STOCKFISH_PATH)
+        engine.set_turn_perspective(False)
         engine.set_fen_position(fen)
         engine.set_skill_level(20)
         eval_data = engine.get_evaluation()
@@ -27,26 +34,30 @@ def analyze_position():
 
         classification = 'good'
         if prev_fen and validate_fen(prev_fen) and validate_uci_move(played_uci):
+            prev_board = chess.Board(prev_fen)
+            played_move = chess.Move.from_uci(played_uci)
+            if played_move not in prev_board.legal_moves:
+                return jsonify({"error": "Lance anterior inválido para a posição."}), 400
+
             prev_engine = Stockfish(path=STOCKFISH_PATH)
+            prev_engine.set_turn_perspective(False)
             prev_engine.set_fen_position(prev_fen)
             prev_eval = prev_engine.get_evaluation()
+            prev_best_moves = prev_engine.get_top_moves(1)
+            best_move_uci = prev_best_moves[0]['Move'] if prev_best_moves else None
 
-            val_now = eval_data.get('value', 0) if eval_data.get('type') == 'cp' else (1000 if eval_data.get('value', 0) > 0 else -1000)
-            val_prev = prev_eval.get('value', 0) if prev_eval.get('type') == 'cp' else (1000 if prev_eval.get('value', 0) > 0 else -1000)
-
-            prev_board = chess.Board(prev_fen)
-            turn_mult = 1 if prev_board.turn == chess.WHITE else -1
-            cp_diff = (val_prev * turn_mult) - (val_now * turn_mult)
+            mover_sign = 1 if prev_board.turn == chess.WHITE else -1
+            cp_loss = (_evaluation_as_white_cp(prev_eval) - _evaluation_as_white_cp(eval_data)) * mover_sign
 
             if played_uci == best_move_uci:
                 classification = 'best'
-            elif cp_diff <= 15:
+            elif cp_loss <= 15:
                 classification = 'best'
-            elif cp_diff <= 50:
+            elif cp_loss <= 50:
                 classification = 'good'
-            elif cp_diff <= 120:
+            elif cp_loss <= 120:
                 classification = 'inaccuracy'
-            elif cp_diff <= 250:
+            elif cp_loss <= 250:
                 classification = 'mistake'
             else:
                 classification = 'blunder'

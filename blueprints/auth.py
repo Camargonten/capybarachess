@@ -21,8 +21,8 @@ def is_user_admin(username: str) -> bool:
 def build_auth_payload(username: str):
     with get_db() as conn:
         user = conn.execute("""
-            SELECT id, coins, rating, inventory, calibrated, avatar, google_email, is_admin,
-                   active_frame, active_banner, calibration_games, colorblind_mode, skip_animation, bgm_choice
+                 SELECT id, username, display_name, bio, coins, rating, inventory, calibrated, avatar, google_email, is_admin,
+                     active_frame, active_banner, active_piece_skin, calibration_games, colorblind_mode, skip_animation, bgm_choice
             FROM users WHERE username = ?
         """, (username,)).fetchone()
         if not user:
@@ -38,6 +38,8 @@ def build_auth_payload(username: str):
             "success": True,
             "user_id": user['id'],
             "username": username,
+            "display_name": user['display_name'] or username,
+            "bio": user['bio'] or '',
             "coins": user['coins'],
             "rating": user['rating'],
             "inventory": user['inventory'] or '[]',
@@ -51,6 +53,7 @@ def build_auth_payload(username: str):
             "is_admin": bool(user['is_admin'] or is_user_admin(username)),
             "active_frame": user['active_frame'] or '',
             "active_banner": user['active_banner'] or '',
+            "active_piece_skin": user['active_piece_skin'] or '',
             "colorblind_mode": bool(user['colorblind_mode']),
             "skip_animation": bool(user['skip_animation']),
             "bgm_choice": user['bgm_choice'] or 1

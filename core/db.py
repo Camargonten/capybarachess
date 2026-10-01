@@ -29,6 +29,8 @@ def init_db():
             CREATE TABLE IF NOT EXISTS users (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
+                display_name TEXT DEFAULT '',
+                bio TEXT DEFAULT '',
                 password TEXT NOT NULL,
                 coins INTEGER DEFAULT 100,
                 rating INTEGER DEFAULT 1200,
@@ -45,13 +47,16 @@ def init_db():
                 google_email TEXT,
                 is_admin INTEGER DEFAULT 0,
                 active_frame TEXT DEFAULT '',
-                active_banner TEXT DEFAULT ''
+                active_banner TEXT DEFAULT '',
+                active_piece_skin TEXT DEFAULT ''
             )
         ''')
         cursor.execute("PRAGMA table_info(users)")
         existing_columns = {row['name'] for row in cursor.fetchall()}
         
         columns_to_add = {
+            'display_name': "TEXT DEFAULT ''",
+            'bio': "TEXT DEFAULT ''",
             'inventory': "TEXT DEFAULT '[]'",
             'last_login': "TEXT",
             'calibrated': "INTEGER DEFAULT 0",
@@ -64,13 +69,15 @@ def init_db():
             'google_email': "TEXT",
             'is_admin': "INTEGER DEFAULT 0",
             'active_frame': "TEXT DEFAULT ''",
-            'active_banner': "TEXT DEFAULT ''"
+            'active_banner': "TEXT DEFAULT ''",
+            'active_piece_skin': "TEXT DEFAULT ''"
         }
         for col, col_def in columns_to_add.items():
             if col not in existing_columns:
                 cursor.execute(f"ALTER TABLE users ADD COLUMN {col} {col_def}")
                 if col == 'last_login':
                     cursor.execute("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE last_login IS NULL")
+        cursor.execute("UPDATE users SET display_name = username WHERE display_name IS NULL OR display_name = ''")
 
         cursor.execute("CREATE UNIQUE INDEX IF NOT EXISTS users_google_sub_unique ON users (google_sub)")
 

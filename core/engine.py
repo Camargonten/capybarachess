@@ -116,14 +116,7 @@ def get_bot_move_fide(board: chess.Board, bot_rating: int, fast: bool = False):
     if board.is_game_over():
         return None, 0
 
-    move_num = board.fullmove_number
-    # Tempo de reflexão realista: ~2s na abertura (lances 1 a 4), média de 4.5s no meio-jogo
-    if fast:
-        think_time_ms = random.randint(500, 1100)
-    elif move_num <= 4:
-        think_time_ms = random.randint(1800, 2400)
-    else:
-        think_time_ms = random.randint(3800, 5200)
+    think_time_ms = 1 if fast else 4000
 
     try:
         with _engine_lock:
@@ -137,8 +130,7 @@ def get_bot_move_fide(board: chess.Board, bot_rating: int, fast: bool = False):
             stockfish_elo = max(1320, min(3190, clamped_rating))
             engine.set_elo_rating(stockfish_elo)
 
-            search_time = min(500, max(50, int(think_time_ms * 0.15)))
-            best_move = engine.get_best_move_time(search_time)
+            best_move = engine.get_best_move_time(think_time_ms)
 
             if best_move and chess.Move.from_uci(best_move) in board.legal_moves:
                 return best_move, think_time_ms

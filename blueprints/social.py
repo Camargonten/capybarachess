@@ -23,7 +23,7 @@ def ranking_online():
     current_user = session.get('username') or request.args.get('username', '').strip()
     with get_db() as conn:
         rows = conn.execute("""
-            SELECT username, rating, coins, avatar, active_frame, active_banner, calibrated
+            SELECT username, display_name, rating, coins, avatar, active_frame, active_banner, calibrated
             FROM users
             WHERE rating IS NOT NULL
             ORDER BY rating DESC, coins DESC, id ASC
@@ -42,6 +42,7 @@ def ranking_online():
             ranking.append({
                 "rank": idx,
                 "username": uname,
+                "display_name": row['display_name'] or uname,
                 "rating": row['rating'],
                 "coins": row['coins'],
                 "avatar": row['avatar'] or '',
@@ -77,21 +78,118 @@ def search_users():
 
     return jsonify({"users": users})
 
+@social_bp.route('/players/<username>', methods=['GET'])
+def player_profile(username):
+    viewer = session.get('username') or request.args.get('viewer', '').strip()
+    with get_db() as conn:
+        player = conn.execute(
+            "SELECT username, display_name, bio, rating, avatar FROM users WHERE username = ?",
+            (username,)
+        ).fetchone()
+        if not player:
+            return jsonify({"error": "Jogador não encontrado."}), 404
+
+        friend_status = 'none'
+        if viewer == username:
+            friend_status = 'self'
+        elif viewer:
+            if are_friends(conn, viewer, username):
+                friend_status = 'friends'
+            else:
+                sent = conn.execute(
+                    "SELECT 1 FROM friend_requests WHERE sender = ? AND recipient = ? AND status = 'pending'",
+                    (viewer, username)
+                ).fetchone()
+                received = conn.execute(
+                    "SELECT 1 FROM friend_requests WHERE sender = ? AND recipient = ? AND status = 'pending'",
+                    (username, viewer)
+                ).fetchone()
+                friend_status = 'sent' if sent else 'received' if received else 'none'
+
+        games = conn.execute("""
+            SELECT white_user, black_user, status, winner, termination_reason, created_at
+            FROM games
+            WHERE (white_user = ? OR black_user = ?) AND status NOT IN ('waiting', 'active')
+            ORDER BY created_at DESC LIMIT 25
+        """, (username, username)).fetchall()
+
+    history = []
+    for game in games:
+        player_side = 'white' if game['white_user'] == username else 'black'
+        opponent = game['black_user'] if player_side == 'white' else game['white_user']
+        if game['winner'] == 'draw':
+            result = 'draw'
+        else:
+            result = 'win' if game['winner'] == player_side else 'loss'
+        history.append({
+            "opponent": opponent or 'Desconhecido',
+            "result": result,
+            "status": game['status'],
+            "termination_reason": game['termination_reason'] or '',
+            "played_at": game['created_at'] or ''
+        })
+
+    return jsonify({
+        "success": True,
+        "username": player['username'],
+        "display_name": player['display_name'] or player['username'],
+        "bio": player['bio'] or '',
+        "rating": player['rating'],
+        "avatar": player['avatar'] or '',
+        "friend_status": friend_status,
+        "history": history
+    })
+
+@social_bp.route('/notifications', methods=['GET'])
+def notifications():
+    username = session.get('username')
+    if not username:
+        return jsonify({"error": "Não autenticado."}), 401
+
+    with get_db() as conn:
+        rows = conn.execute("""
+            SELECT fr.sender, u.display_name, fr.created_at
+            FROM friend_requests fr JOIN users u ON u.username = fr.sender
+            WHERE fr.recipient = ? AND fr.status = 'pending'
+            ORDER BY fr.created_at DESC
+        """, (username,)).fetchall()
+
+    return jsonify({"notifications": [
+        {"sender": row['sender'], "display_name": row['display_name'] or row['sender'], "created_at": row['created_at']}
+        for row in rows
+    ]})
+
 @social_bp.route('/friends/request', methods=['POST'])
 def send_friend_request():
     data = request.get_json(silent=True) or {}
-    sender = str(data.get('sender', '')).strip()
+    sender = session.get('username')
     recipient = str(data.get('recipient', '')).strip()
 
-    if not sender or not recipient or sender == recipient:
+    if not sender:
+        return jsonify({"error": "Não autenticado."}), 401
+    if not recipient or sender == recipient:
         return jsonify({"error": "Pedido de amizade inválido."}), 400
 
     with get_db() as conn:
+        source = conn.execute("SELECT 1 FROM users WHERE username = ?", (sender,)).fetchone()
         target = conn.execute("SELECT 1 FROM users WHERE username = ?", (recipient,)).fetchone()
+        if not source:
+            return jsonify({"error": "Conta remetente não encontrada."}), 404
         if not target:
             return jsonify({"error": "Usuário não encontrado."}), 404
         if are_friends(conn, sender, recipient):
             return jsonify({"error": "Este usuário já é seu amigo."}), 400
+
+        reverse = conn.execute(
+            "SELECT 1 FROM friend_requests WHERE sender = ? AND recipient = ? AND status = 'pending'",
+            (recipient, sender)
+        ).fetchone()
+        if reverse:
+            conn.execute(
+                "UPDATE friend_requests SET status = 'accepted' WHERE sender = ? AND recipient = ?",
+                (recipient, sender)
+            )
+            return jsonify({"success": True, "accepted": True, "message": "Pedido recíproco aceito; vocês agora são amigos."})
 
         existing = conn.execute(
             "SELECT 1 FROM friend_requests WHERE sender = ? AND recipient = ? AND status = 'pending'",
@@ -101,7 +199,7 @@ def send_friend_request():
             return jsonify({"error": "Pedido já enviado."}), 400
 
         conn.execute(
-            "INSERT OR REPLACE INTO friend_requests (sender, recipient, status) VALUES (?, ?, 'pending')",
+            "INSERT INTO friend_requests (sender, recipient, status) VALUES (?, ?, 'pending')",
             (sender, recipient)
         )
 
@@ -110,9 +208,11 @@ def send_friend_request():
 @social_bp.route('/friends/respond', methods=['POST'])
 def respond_friend_request():
     data = request.get_json(silent=True) or {}
-    recipient = str(data.get('recipient', '')).strip()
+    recipient = session.get('username')
     sender = str(data.get('sender', '')).strip()
     accept = data.get('accept') is True
+    if not recipient:
+        return jsonify({"error": "Não autenticado."}), 401
 
     with get_db() as conn:
         req = conn.execute(
@@ -131,7 +231,9 @@ def respond_friend_request():
 
 @social_bp.route('/friends', methods=['GET'])
 def list_friends():
-    username = request.args.get('username', '').strip()
+    username = session.get('username')
+    if not username:
+        return jsonify({"error": "Não autenticado."}), 401
     with get_db() as conn:
         f_rows = conn.execute("""
             SELECT CASE WHEN sender = ? THEN recipient ELSE sender END as friend
@@ -151,11 +253,13 @@ def list_friends():
 def messages():
     if request.method == 'POST':
         data = request.get_json(silent=True) or {}
-        sender = str(data.get('sender', '')).strip()
+        sender = session.get('username')
         recipient = str(data.get('recipient', '')).strip()
         content = str(data.get('content', '')).strip()[:500]
 
-        if not sender or not recipient or not content:
+        if not sender:
+            return jsonify({"error": "Não autenticado."}), 401
+        if not recipient or not content:
             return jsonify({"error": "Mensagem inválida."}), 400
 
         with get_db() as conn:
@@ -167,8 +271,10 @@ def messages():
             )
         return jsonify({"success": True})
 
-    user = request.args.get('user', '').strip()
+    user = session.get('username')
     friend = request.args.get('friend', '').strip()
+    if not user:
+        return jsonify({"error": "Não autenticado."}), 401
     with get_db() as conn:
         if not are_friends(conn, user, friend):
             return jsonify({"error": "Você só pode conversar com amigos confirmados."}), 403

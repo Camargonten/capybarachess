@@ -10,6 +10,7 @@ SHOP_ITEMS = {
     'frame_obsidian': 340, 'frame_crown': 400, 'banner_pawn': 20, 'banner_knight': 50,
     'banner_bishop': 80, 'banner_rook': 130, 'banner_queen': 180, 'banner_king': 220,
     'banner_check': 280, 'banner_mate': 320, 'banner_knights': 380, 'banner_grandmaster': 450,
+    'skin_emerald': 120, 'skin_ice': 160, 'skin_sunset': 200,
 }
 
 PROMO_CODES = {

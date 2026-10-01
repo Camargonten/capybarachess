@@ -375,7 +375,8 @@ def game_move(game_id):
 
         bot_moved = None
         if not is_over and game_type == 'bot':
-            bot_uci, think_ms = get_bot_move_fide(board, bot_rating, fast=(b_time < 10 or w_time < 10))
+            bot_time = w_time if board.turn == chess.WHITE else b_time
+            bot_uci, think_ms = get_bot_move_fide(board, bot_rating, fast=(bot_time <= 10))
             if bot_uci:
                 bot_obj = chess.Move.from_uci(bot_uci)
                 bot_san = board.san(bot_obj)

@@ -112,10 +112,31 @@
             box-shadow: inset 0 0 0 4px #fbbf24 !important;
             background-color: rgba(251, 191, 36, 0.45) !important;
         }
+        #board { touch-action: manipulation; user-select: none; -webkit-user-select: none; }
+        #board .legal-move-square::after,
+        #board .legal-capture-square::after {
+            content: '';
+            position: absolute;
+            inset: 0;
+            margin: auto;
+            width: 30%;
+            height: 30%;
+            border-radius: 50%;
+            pointer-events: none;
+        }
+        #board .legal-move-square::after { background: rgba(23, 34, 30, .34); }
+        #board .legal-capture-square::after {
+            width: 82%;
+            height: 82%;
+            border: 5px solid rgba(23, 34, 30, .38);
+        }
 
         /* Modo para Daltônicos (Alto Contraste) */
-        .colorblind-mode .white-1e1d7 { background-color: #eae38f !important; color: #2b5c8f !important; }
-        .colorblind-mode .black-3c85d { background-color: #2b5c8f !important; color: #eae38f !important; }
+        .colorblind-mode #board .white-1e1d7, .colorblind-mode #analysis-board .white-1e1d7 { background-color: #f0e442 !important; color: #0072b2 !important; }
+        .colorblind-mode #board .black-3c85d, .colorblind-mode #analysis-board .black-3c85d { background-color: #0072b2 !important; color: #f0e442 !important; }
+        #board.piece-skin-emerald img, #analysis-board.piece-skin-emerald img, .piece-art.piece-skin-emerald { filter: sepia(.75) saturate(1.8) hue-rotate(75deg); }
+        #board.piece-skin-ice img, #analysis-board.piece-skin-ice img, .piece-art.piece-skin-ice { filter: sepia(.35) saturate(1.8) hue-rotate(155deg); }
+        #board.piece-skin-sunset img, #analysis-board.piece-skin-sunset img, .piece-art.piece-skin-sunset { filter: sepia(.9) saturate(2.1) hue-rotate(325deg); }
 
         /* Barra de Avaliação da Análise */
         .eval-bar-bg {
@@ -212,6 +233,15 @@
                     <option value="pt">PT</option><option value="en">EN</option><option value="es">ES</option><option value="fr">FR</option><option value="ru">RU</option><option value="de">DE</option><option value="hi">HI</option>
                 </select>
                 <div class="relative"><button id="language-trigger" onclick="toggleLanguageMenu('lobby')" class="bg-slate-900 border border-slate-700 px-2 py-1.5 rounded-lg text-xs">Português v</button><div id="lobby-language-menu" class="hidden absolute right-0 z-20 mt-1 w-32 bg-slate-900 border border-slate-700 rounded-lg overflow-hidden"><button onclick="setLanguage('pt')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">Português</button><button onclick="setLanguage('en')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">English</button><button onclick="setLanguage('es')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">Español</button><button onclick="setLanguage('fr')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">Français</button><button onclick="setLanguage('ru')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">Русский</button><button onclick="setLanguage('de')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">Deutsch</button><button onclick="setLanguage('hi')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">हिन्दी</button></div></div>
+                <div class="relative">
+                    <button id="notifications-toggle" onclick="toggleNotifications()" aria-label="Notificações" title="Notificações" class="relative bg-slate-900 border border-slate-700 px-2.5 py-1.5 rounded-lg text-sm">
+                        <span aria-hidden="true">🔔</span><span id="notifications-count" class="hidden absolute -right-1 -top-1 min-w-4 rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">0</span>
+                    </button>
+                    <div id="notifications-panel" class="hidden absolute right-0 z-40 mt-2 w-72 max-w-[90vw] rounded-lg border border-slate-700 bg-slate-900 p-3 shadow-xl">
+                        <div class="mb-2 flex items-center justify-between"><strong class="text-xs text-amber-300">Notificações</strong><button onclick="refreshNotifications()" title="Atualizar notificações" class="text-xs text-slate-400 hover:text-white">↻</button></div>
+                        <div id="notifications-list" class="flex max-h-72 flex-col gap-2 text-xs"><span class="text-slate-400">Carregando...</span></div>
+                    </div>
+                </div>
                 <button id="menu-settings" onclick="openConfig()" class="bg-slate-700 hover:bg-slate-600 px-3 py-1.5 rounded-lg text-sm font-semibold">Configurações</button>
                 <button onclick="logout()" title="Sair da conta" class="bg-red-700/60 hover:bg-red-700 px-3 py-1.5 rounded-lg text-sm font-semibold">Sair</button>
             </div>
@@ -226,7 +256,7 @@
             <button id="menu-shop" onclick="playMenuSound(); openShop()" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">♛</span> <span id="menu-shop-label">Loja</span></button>
             <button id="menu-missions" onclick="playMenuSound(); openMissions()" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">★</span> <span id="menu-missions-label">Missões</span></button>
             <button id="menu-friends" onclick="playMenuSound(); openFriends()" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">☻</span> <span id="menu-friends-label">Amigos</span></button>
-            <button id="menu-guide" onclick="playMenuSound(); showTutorial(true)" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">?</span> <span id="menu-guide-label">Guia</span></button>
+            <button id="menu-guide" onclick="playMenuSound(); showTutorial(false)" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">?</span> <span id="menu-guide-label">Guia</span></button>
         </nav>
 
         <div class="grid grid-cols-1 gap-4 flex-1 min-w-0">
@@ -522,7 +552,7 @@
                     <div class="grid grid-cols-3 gap-2">
                         <button id="rank-mode-bullet" onclick="selectRankMode('bullet')" class="choice border border-slate-600 p-2 rounded-lg text-xs font-bold">Bullet</button>
                         <button id="rank-mode-blitz" onclick="selectRankMode('blitz')" class="choice active border border-slate-600 p-2 rounded-lg text-xs font-bold">Blitz</button>
-                        <button id="rank-mode-rapid" onclick="selectRankMode('rapid')" class="choice border border-slate-600 p-2 rounded-lg text-xs font-bold">Rapid</button>
+                        <button id="rank-mode-rapid" onclick="selectRankMode('rapid')" class="choice border border-slate-600 p-2 rounded-lg text-xs font-bold">Rápidas</button>
                     </div>
                     <p id="classic-player-rank" class="text-xs font-bold text-red-300 bg-red-950/40 border border-red-700 rounded p-2"></p>
                     <div id="classic-ranking-list" class="max-h-96 overflow-y-auto flex flex-col gap-1"></div>
@@ -541,7 +571,7 @@
         <div class="tutorial-capy" aria-label="Capivara guia com chapéu">
             <div class="capy-ear"></div><div class="capy-body"></div><div class="capy-paw"></div><div class="capy-head"></div><div class="capy-eye"></div><div class="capy-nose"></div><div class="capy-hat"></div>
         </div>
-        <span id="tutorial-step" class="text-xs text-amber-300 font-bold">1 de 5</span>
+        <span id="tutorial-step" class="text-xs text-amber-300 font-bold">1 de 10</span>
         <h2 id="tutorial-title" class="text-xl font-bold text-amber-400"></h2>
         <p id="tutorial-text" class="text-sm text-slate-300 min-h-16"></p>
         <button id="tutorial-action" onclick="openTutorialDestination()" class="bg-emerald-700 hover:bg-emerald-600 py-2 rounded-lg text-xs font-bold"></button>
@@ -585,6 +615,23 @@
         </div>
     </div>
 
+    <div id="player-profile-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-labelledby="player-profile-name">
+        <div class="surface flex max-h-[90vh] w-full max-w-lg flex-col gap-4 overflow-y-auto rounded-lg border border-slate-700 p-5">
+            <div class="flex items-start justify-between gap-3 border-b border-slate-700 pb-3">
+                <div class="flex min-w-0 items-center gap-3">
+                    <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700 font-bold" id="player-profile-avatar-wrap">
+                        <span id="player-profile-avatar-letter">?</span><img id="player-profile-avatar" class="profile-photo hidden" alt="Foto de perfil">
+                    </div>
+                    <div class="min-w-0"><h2 id="player-profile-name" class="truncate text-base font-bold text-amber-300"></h2><span id="player-profile-rating" class="text-xs text-slate-400"></span></div>
+                </div>
+                <button onclick="closePlayerProfile()" aria-label="Fechar perfil" title="Fechar perfil" class="rounded bg-slate-800 px-2 py-1 text-slate-300 hover:bg-slate-700">×</button>
+            </div>
+            <section><h3 class="mb-1 text-xs font-bold text-slate-300">Bio</h3><p id="player-profile-bio" class="break-words text-sm text-slate-200"></p></section>
+            <div class="flex items-center justify-between gap-2"><span id="player-profile-friend-status" class="text-xs text-slate-400"></span><button id="player-profile-add-friend" onclick="sendProfileFriendRequest()" class="hidden rounded bg-amber-600 px-3 py-2 text-xs font-bold text-white hover:bg-amber-500">Adicionar amigo</button></div>
+            <section><h3 class="mb-2 border-b border-slate-800 pb-2 text-sm font-bold text-amber-400">Histórico de partidas</h3><div id="player-profile-history" class="flex max-h-64 flex-col gap-2 overflow-y-auto"></div></section>
+        </div>
+    </div>
+
     <!-- TELA DE CONFIGURAÇÕES, LOJA E CÓDIGO SECRETO -->
     <div id="config-screen" class="hidden surface w-full max-w-4xl p-6 rounded-2xl flex flex-col gap-5 my-auto shadow-2xl">
         <div class="flex justify-between items-center border-b border-slate-700 pb-3">
@@ -616,6 +663,21 @@
             <div id="config-tools" class="flex flex-col gap-4">
                 <!-- Seção 1: Perfil & Cosméticos -->
                 <div id="cfg-sec-profile" class="flex flex-col gap-3">
+                    <div class="flex gap-2 items-end">
+                        <label class="flex-1 text-xs text-slate-300" for="profile-name-input">
+                            Nome de perfil
+                            <input id="profile-name-input" type="text" maxlength="30" class="mt-1 w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-sm">
+                        </label>
+                        <button onclick="saveProfileName()" class="bg-amber-600 hover:bg-amber-500 px-3 py-2 rounded-lg text-xs font-bold">Salvar</button>
+                    </div>
+                    <p id="profile-name-status" class="text-xs text-slate-400" role="status"></p>
+                    <div class="flex items-end gap-2">
+                        <label class="flex-1 text-xs text-slate-300" for="profile-bio-input">Bio pública (máx. 30 caracteres)
+                            <input id="profile-bio-input" type="text" maxlength="30" oninput="updateBioCount(this.value)" class="mt-1 w-full bg-slate-900 border border-slate-700 p-2 rounded-lg text-sm">
+                        </label>
+                        <button onclick="saveProfileBio()" class="bg-amber-600 hover:bg-amber-500 px-3 py-2 rounded-lg text-xs font-bold">Salvar</button>
+                    </div>
+                    <div class="flex justify-between text-xs text-slate-400"><p id="profile-bio-status" role="status"></p><span id="profile-bio-count">0/30</span></div>
                     <div class="flex items-center gap-2 text-amber-400 font-bold text-sm">
                         <span>👑</span>
                         <h4>Foto de Perfil & Molduras</h4>
@@ -758,6 +820,14 @@
             <div class="flex gap-2 text-xs border-b border-slate-800 pb-1">
                 <button id="tab-shop-frames" onclick="switchShopCategory('frames')" class="choice active px-2.5 py-1 rounded font-semibold">Molduras de Avatar</button>
                 <button id="tab-shop-banners" onclick="switchShopCategory('banners')" class="choice px-2.5 py-1 rounded font-semibold">Capas de Perfil</button>
+                <button id="tab-shop-pieces" onclick="switchShopCategory('pieces')" class="choice px-2.5 py-1 rounded font-semibold">Skins de Peças</button>
+            </div>
+
+            <div id="shop-piece-preview" class="hidden items-center gap-3 rounded-lg border border-slate-700 bg-slate-900 p-3" aria-label="Prévia da skin de peças">
+                <div class="flex h-16 w-16 shrink-0 items-center justify-center rounded bg-amber-100">
+                    <img id="shop-piece-preview-img" class="piece-art h-14 w-14 object-contain" src="../../static/pieces/wQ.svg" alt="Prévia de peça de xadrez">
+                </div>
+                <span class="text-xs text-slate-300">Prévia da aparência das peças no tabuleiro</span>
             </div>
 
             <div id="shop-items" class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1"></div>
@@ -963,7 +1033,7 @@
     </div>
 
     <script>
-        let userData = { username: "", rating: 1200, coins: 100, seal: "C", showSeal: false, active_frame: "", active_banner: "", is_admin: false };
+        let userData = { username: "", display_name: "", bio: "", rating: 1200, coins: 100, seal: "C", showSeal: false, active_frame: "", active_banner: "", active_piece_skin: "", is_admin: false };
         let board = null;
         let game = new Chess();
         let currentBot = { rating: 500, name: "Capivarão", seal: "C" };
@@ -988,6 +1058,8 @@
         let calibrationAllowed = true;
         let isCalibrationMatch = false;
         let selectedFriend = null;
+        let viewedPlayerName = null;
+        let notificationPollInterval = null;
         let tutorialIndex = 0;
         let currentLanguage = localStorage.getItem('capybara-language') || 'pt';
         let musicEnabled = localStorage.getItem('capybara-music') !== 'false';
@@ -1013,6 +1085,8 @@
         let activeRankTab = 'online';
         let selectedShopItem = null;
         let currentShopCategory = 'frames';
+        const pieceAssetBase = new URL('../../static/pieces/', document.baseURI).href;
+        const BOARD_MOVE_SPEED = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 160;
         const timeModes = { '60,0': 'bullet', '60,1': 'bullet', '120,0': 'bullet', '120,1': 'bullet', '180,0': 'blitz', '180,2': 'blitz', '300,0': 'blitz', '600,0': 'rapid', '600,5': 'rapid', '1800,0': 'classic', '1800,30': 'classic' };
         const classicModeNames = { classic: 'Clássico', rapid: 'Rápida', blitz: 'Blitz', bullet: 'Bullet' };
         const tutorialSteps = [
@@ -1026,54 +1100,104 @@
             ['frame_oak', 'Moldura Carvalho', 60], ['frame_bronze', 'Moldura Bronze', 80], ['frame_steel', 'Moldura Aço', 100], ['frame_marble', 'Moldura Mármore', 130], ['frame_royal', 'Moldura Real', 160],
             ['frame_ruby', 'Moldura Rubi', 200], ['frame_emerald', 'Moldura Esmeralda', 240], ['frame_sapphire', 'Moldura Safira', 280], ['frame_obsidian', 'Moldura Ônix', 340], ['frame_crown', 'Moldura Coroa', 400],
             ['banner_pawn', 'Capa Peão', 20], ['banner_knight', 'Capa Cavalo', 50], ['banner_bishop', 'Capa Bispo', 80], ['banner_rook', 'Capa Torre', 130], ['banner_queen', 'Capa Dama', 180],
-            ['banner_king', 'Capa Rei', 220], ['banner_check', 'Capa Xeque', 280], ['banner_mate', 'Capa Mate', 320], ['banner_knights', 'Capa Cavalaria', 380], ['banner_grandmaster', 'Capa GM', 450]
+            ['banner_king', 'Capa Rei', 220], ['banner_check', 'Capa Xeque', 280], ['banner_mate', 'Capa Mate', 320], ['banner_knights', 'Capa Cavalaria', 380], ['banner_grandmaster', 'Capa GM', 450],
+            ['skin_emerald', 'Esmeralda', 120], ['skin_ice', 'Gelo', 160], ['skin_sunset', 'Pôr do Sol', 200]
         ];
         const sealDescriptions = {
             C: 'Capivarão: venceu o bot de 500.', P: 'Pirata: venceu o bot de 1000.', M: 'Marinheiro: venceu o bot de 1500.', G: 'Governador: venceu o bot de 2100.',
             I: 'Imperador: venceu o bot de 2150.', NM: 'Mestre Nacional: venceu Pedro.', FM: 'Mestre FIDE: venceu Dill.', IM: 'Mestre Internacional: venceu Erick.',
-            GM: 'Grande Mestre: venceu Anonimus.', SP: 'Super Grande Mestre: venceu Camargo.', ST: 'Stockfish: venceu Fish.'
+            GM: 'Grande Mestre: venceu Anonimus.', SP: 'Super Grande Mestre: venceu Camargo.', ST: 'Stockfish: venceu Fish.', RF: 'Rafachess: venceu a Capivara Guia.'
+        };
+        const sealDescriptionsFr = {
+            C: 'Capybara : a vaincu le bot de 500.', P: 'Pirate : a vaincu le bot de 1000.', M: 'Marin : a vaincu le bot de 1500.',
+            G: 'Gouverneur : a vaincu le bot de 2100.', I: 'Empereur : a vaincu le bot de 2150.', NM: 'Maître national : a vaincu Pedro.',
+            FM: 'Maître FIDE : a vaincu Dill.', IM: 'Maître international : a vaincu Erick.', GM: 'Grand maître : a vaincu Anonimus.',
+            SP: 'Super grand maître : a vaincu Camargo.', ST: 'Stockfish : a vaincu Fish.', RF: 'Rafachess : a vaincu le guide Capybara.'
         };
         const languageText = {
-            pt: { bots: 'Bots', play: 'Partidas', ranks: 'Ranks', clubs: 'Clubes', shop: 'Loja', friends: 'Amigos', guide: 'Guia', settings: 'Configurações', tutorial: [
-                ['Bem-vindo ao Capybara', 'Eu sou a Capivara Guia. Escolha seu nick com atenção: ele é gratuito uma vez. Entre na calibração para medir sua força antes de começar a jogar.'],
-                ['O menu do jogo', 'Use Bots para treinar, Partidas para desafios, Loja para usar Camarcoins, Amigos para conversar e Guia para rever estas explicações.'],
-                ['Partidas e tabuleiro', 'Escolha cor, ritmo e bot. Os lances seguem as regras do xadrez. Use botão direito para setas e clique esquerdo para limpar a análise.'],
-                ['Rating e normas', 'A calibração contra os cinco primeiros bots acontece apenas uma vez. Depois, bots são treino. Somente partidas online ranqueadas poderão alterar rating.'],
-                ['Selos e Camarcoins', 'Ao vencer um bot, você ganha o selo dele. Veja suas conquistas e escolha exibir o selo nas configurações. Camarcoins servem para molduras e capas.'],
-                ['Amigos e desafios', 'Em Amigos e Conversas, pesquise um nick, envie pedido e converse após o aceite. Você também pode gerar links de desafio para compartilhar.']
+            pt: { bots: 'Bots', play: 'Partidas', ranks: 'Ranks', clubs: 'Clubes', missions: 'Missões', shop: 'Loja', friends: 'Amigos', guide: 'Guia', settings: 'Configurações', tutorial: [
+                ['Perfil e idioma', 'Escolha seu nick com atenção: ele é gratuito uma vez. Em Configurações, edite seu nome de perfil, foto, idioma, áudio e acessibilidade.'],
+                ['Bots e calibração', 'Treine contra bots e ajuste a força da engine. A calibração inicial mede seu rating; depois, partidas contra bots servem para praticar.'],
+                ['Encontrar partidas', 'Em Partidas, escolha PvP online ou bot, cor e ritmo. A busca ranqueada altera rating; o modo clássico é casual.'],
+                ['Lances no tabuleiro', 'Arraste ou toque para mover. Use clique direito para desenhar setas e clique esquerdo para limpar. Ao promover um peão, escolha a peça.'],
+                ['Relógio e controles', 'Acompanhe os dois relógios. Contra bots você pode voltar lance; em qualquer partida pode oferecer empate ou desistir.'],
+                ['Análise e resultado', 'Após a partida, abra Analisar para ver avaliação, melhor lance e classificação. Navegue pelos lances ou copie o PGN.'],
+                ['Ranks e rating', 'Acompanhe rankings online, bots e modos Clássico, Rápida, Blitz e Bullet. Partidas ranqueadas online atualizam seu rating.'],
+                ['Missões e conquistas', 'Confira objetivos, progresso e recompensas em Missões. Os selos conquistados aparecem em Conquistas nas Configurações.'],
+                ['Clubes', 'Explore clubes, participe de conversas e desafios de clube, ou crie uma comunidade para jogar com outras pessoas.'],
+                ['Amigos e loja', 'Pesquise jogadores, converse com amigos e compartilhe desafios. Use Camarcoins na Loja para molduras, capas e skins de peças.']
             ] },
-            en: { bots: 'Bots', play: 'Matches', ranks: 'Ranks', clubs: 'Clubs', shop: 'Shop', friends: 'Friends', guide: 'Guide', settings: 'Settings', tutorial: [
-                ['Welcome to Capybara', 'I am the Capybara Guide. Choose your nickname carefully: it is free once. Use calibration to measure your strength before playing.'],
-                ['Game menu', 'Use Bots to practice, Matches for challenges, Shop for Camarcoins, Friends to chat, and Guide to revisit these explanations.'],
-                ['Matches and board', 'Choose color, time control and bot. Moves follow chess rules. Right-click draws arrows and left-click clears analysis.'],
-                ['Rating and rules', 'Calibration against the first five bots happens only once. Afterwards bots are training. Only ranked online matches can change rating.'],
-                ['Badges and Camarcoins', 'Beat a bot to earn its badge. View achievements and choose to show a badge in settings. Camarcoins buy frames and covers.'],
-                ['Friends and challenges', 'In Friends and Chat, search a nickname, send a request and chat after acceptance. You can also generate challenge links.']
+            en: { bots: 'Bots', play: 'Matches', ranks: 'Ranks', clubs: 'Clubs', missions: 'Missions', shop: 'Shop', friends: 'Friends', guide: 'Guide', settings: 'Settings', tutorial: [
+                ['Profile and language', 'Choose your nickname carefully: it is free once. In Settings, edit your profile name, photo, language, audio and accessibility.'],
+                ['Bots and calibration', 'Practice against bots and adjust engine strength. Initial calibration measures your rating; later bot games are for practice.'],
+                ['Find a match', 'In Matches, choose online PvP or a bot, color and time control. Ranked play changes rating; Classic is casual.'],
+                ['Moves on the board', 'Drag or tap to move. Right-click draws arrows and left-click clears them. When promoting a pawn, choose a piece.'],
+                ['Clock and controls', 'Watch both clocks. You can take back a move against bots; in any match you can offer a draw or resign.'],
+                ['Analysis and results', 'After a game, open Analyze to review evaluation, best move and move classification. Browse the moves or copy the PGN.'],
+                ['Ranks and rating', 'Follow online, bot and Classic, Rapid, Blitz and Bullet rankings. Ranked online games update your rating.'],
+                ['Missions and achievements', 'Track objectives, progress and rewards in Missions. Earned badges appear under Achievements in Settings.'],
+                ['Clubs', 'Browse clubs, join conversations and club challenges, or create a community to play with others.'],
+                ['Friends and shop', 'Find players, chat with friends and share challenges. Spend Camarcoins on frames, profile covers and piece skins.']
             ] },
-            es: { bots: 'Bots', play: 'Partidas', ranks: 'Ranks', clubs: 'Clubes', shop: 'Tienda', friends: 'Amigos', guide: 'Guía', settings: 'Configuración', tutorial: [
-                ['Bienvenido a Capybara', 'Soy la Capibara Guía. Elige tu apodo con cuidado: es gratis una vez. Usa la calibración para medir tu fuerza.'],
-                ['Menú del juego', 'Usa Bots para entrenar, Partidas para desafíos, Tienda para Camarcoins, Amigos para conversar y Guía para repasar.'],
-                ['Partidas y tablero', 'Elige color, ritmo y bot. Los movimientos siguen las reglas del ajedrez. Clic derecho dibuja flechas y clic izquierdo limpia el análisis.'],
-                ['Rating y reglas', 'La calibración contra los cinco primeros bots ocurre una vez. Después los bots son entrenamiento. Solo partidas clasificadas cambian rating.'],
-                ['Sellos y Camarcoins', 'Vence a un bot para obtener su sello. Consulta logros y muestra tu sello en configuración.'],
-                ['Amigos y desafíos', 'Busca un apodo, envía solicitud y conversa después de aceptarla. También puedes generar enlaces de desafío.']
+            es: { bots: 'Bots', play: 'Partidas', ranks: 'Ranks', clubs: 'Clubes', missions: 'Misiones', shop: 'Tienda', friends: 'Amigos', guide: 'Guía', settings: 'Configuración', tutorial: [
+                ['Perfil e idioma', 'Elige tu apodo con cuidado: es gratis una vez. En Configuración puedes cambiar nombre, foto, idioma, audio y accesibilidad.'],
+                ['Bots y calibración', 'Entrena contra bots y ajusta la fuerza del motor. La calibración inicial mide tu rating; después, juega para practicar.'],
+                ['Buscar partida', 'En Partidas, elige PvP en línea o bot, color y ritmo. El modo clasificatorio cambia el rating; Clásico es casual.'],
+                ['Movimientos en el tablero', 'Arrastra o toca para mover. Clic derecho dibuja flechas y clic izquierdo las borra. Al promocionar un peón, elige una pieza.'],
+                ['Reloj y controles', 'Vigila ambos relojes. Puedes deshacer un movimiento contra bots; en cualquier partida puedes ofrecer tablas o rendirte.'],
+                ['Análisis y resultados', 'Después de jugar, abre Analizar para ver evaluación, mejor movimiento y clasificación. Recorre las jugadas o copia el PGN.'],
+                ['Ranks y rating', 'Consulta rankings en línea, de bots y los modos Clásico, Rápida, Blitz y Bullet. Las partidas clasificatorias actualizan tu rating.'],
+                ['Misiones y logros', 'Consulta objetivos, progreso y recompensas en Misiones. Tus sellos aparecen en Logros dentro de Configuración.'],
+                ['Clubes', 'Explora clubes, participa en conversaciones y desafíos, o crea una comunidad para jugar.'],
+                ['Amigos y tienda', 'Busca jugadores, conversa con amigos y comparte desafíos. Usa Camarcoins para marcos, portadas y skins de piezas.']
             ] },
-            fr: { bots: 'Bots', play: 'Parties', ranks: 'Rangs', clubs: 'Clubs', shop: 'Boutique', friends: 'Amis', guide: 'Guide', settings: 'Paramètres', tutorial: [
-                ['Bienvenue sur Capybara', 'Je suis le Guide Capybara. Choisissez votre pseudo avec soin: il est gratuit une seule fois. Utilisez le calibrage pour mesurer votre force.'],
-                ['Menu du jeu', 'Utilisez Bots pour vous entraîner, Parties pour les défis, Boutique pour les Camarcoins, Amis pour discuter et Guide pour revoir ceci.'],
-                ['Parties et échiquier', 'Choisissez couleur, cadence et bot. Les coups suivent les règles des échecs. Clic droit dessine des flèches et clic gauche efface l’analyse.'],
-                ['Classement et règles', 'Le calibrage avec les cinq premiers bots ne se fait qu’une fois. Ensuite les bots servent à l’entraînement. Seules les parties classées changent le rating.'],
-                ['Badges et Camarcoins', 'Battez un bot pour gagner son badge. Consultez vos succès et affichez un badge dans les paramètres.'],
-                ['Amis et défis', 'Cherchez un pseudo, envoyez une demande et discutez après acceptation. Vous pouvez aussi générer des liens de défi.']
+            fr: { bots: 'Bots', play: 'Parties', ranks: 'Rangs', clubs: 'Clubs', missions: 'Missions', shop: 'Boutique', friends: 'Amis', guide: 'Guide', settings: 'Paramètres', tutorial: [
+                ['Profil et langue', 'Choisissez votre pseudo avec soin: il est gratuit une seule fois. Dans Paramètres, modifiez nom, photo, langue, audio et accessibilité.'],
+                ['Bots et calibrage', 'Entraînez-vous contre les bots et réglez la force du moteur. Le calibrage initial mesure votre rating; ensuite, jouez pour vous entraîner.'],
+                ['Trouver une partie', 'Dans Parties, choisissez PvP en ligne ou bot, couleur et cadence. Le mode classé modifie le rating; Classique est libre.'],
+                ['Coups sur l’échiquier', 'Faites glisser ou touchez pour jouer. Clic droit dessine des flèches, clic gauche les efface. Choisissez une pièce lors d’une promotion.'],
+                ['Pendule et commandes', 'Surveillez les deux pendules. Reprenez un coup contre les bots; dans toute partie, proposez la nulle ou abandonnez.'],
+                ['Analyse et résultats', 'Après une partie, ouvrez Analyse pour voir évaluation, meilleur coup et classement du coup. Parcourez les coups ou copiez le PGN.'],
+                ['Classements et rating', 'Consultez les classements en ligne, bots et les modes Classique, Rapide, Blitz et Bullet. Les parties classées mettent le rating à jour.'],
+                ['Missions et succès', 'Suivez objectifs, progression et récompenses dans Missions. Vos badges se trouvent dans Succès, dans Paramètres.'],
+                ['Clubs', 'Parcourez les clubs, participez aux discussions et défis, ou créez une communauté pour jouer.'],
+                ['Amis et boutique', 'Trouvez des joueurs, discutez avec vos amis et partagez des défis. Utilisez les Camarcoins pour acheter cadres, couvertures et skins.']
             ] },
-            ru: { bots: 'Боты', play: 'Партии', ranks: 'Рейтинг', clubs: 'Клубы', shop: 'Магазин', friends: 'Друзья', guide: 'Гид', settings: 'Настройки', tutorial: [
-                ['Добро пожаловать в Капибару', 'Я капибара-гид. Играйте в шахматы, тренируйтесь и поднимайте рейтинг!']
+            ru: { bots: 'Боты', play: 'Партии', ranks: 'Рейтинг', clubs: 'Клубы', missions: 'Задания', shop: 'Магазин', friends: 'Друзья', guide: 'Гид', settings: 'Настройки', tutorial: [
+                ['Профиль и язык', 'Выберите имя внимательно: бесплатно его можно задать один раз. В настройках меняются имя профиля, фото, язык, звук и доступность.'],
+                ['Боты и калибровка', 'Тренируйтесь против ботов и меняйте силу движка. Начальная калибровка определяет рейтинг; далее игры с ботами служат тренировкой.'],
+                ['Поиск партии', 'В разделе партий выберите онлайн PvP или бота, цвет и контроль времени. Рейтинговая игра меняет рейтинг, классическая — нет.'],
+                ['Ходы на доске', 'Перетаскивайте фигуру или коснитесь клетки. Правая кнопка рисует стрелки, левая убирает их. При превращении пешки выберите фигуру.'],
+                ['Часы и управление', 'Следите за обоими часами. Против ботов можно отменить ход; в любой партии можно предложить ничью или сдаться.'],
+                ['Анализ и результат', 'После партии откройте анализ: оценка, лучший ход и качество хода. Перелистывайте ходы или копируйте PGN.'],
+                ['Рейтинг и таблицы', 'Смотрите онлайн-рейтинг, рейтинг ботов и режимы Классика, Рапид, Блиц и Буллет. Рейтинговые партии обновляют рейтинг.'],
+                ['Задания и достижения', 'Следите за целями, прогрессом и наградами в заданиях. Полученные знаки видны в достижениях настроек.'],
+                ['Клубы', 'Ищите клубы, участвуйте в беседах и клубных вызовах или создайте сообщество.'],
+                ['Друзья и магазин', 'Находите игроков, общайтесь с друзьями и делитесь вызовами. Покупайте рамки, обложки и скины фигур за Camarcoins.']
             ] },
-            de: { bots: 'Bots', play: 'Partien', ranks: 'Ränge', clubs: 'Vereine', shop: 'Laden', friends: 'Freunde', guide: 'Anleitung', settings: 'Einstellungen', tutorial: [
-                ['Willkommen bei Capybara', 'Ich bin der Capybara-Führer. Verbessere dein Rating und trete Vereinen bei!']
+            de: { bots: 'Bots', play: 'Partien', ranks: 'Ranglisten', clubs: 'Vereine', missions: 'Missionen', shop: 'Shop', friends: 'Freunde', guide: 'Anleitung', settings: 'Einstellungen', tutorial: [
+                ['Profil und Sprache', 'Wähle deinen Nick sorgfältig: Er ist einmal kostenlos. Unter Einstellungen änderst du Profilname, Foto, Sprache, Audio und Barrierefreiheit.'],
+                ['Bots und Kalibrierung', 'Trainiere gegen Bots und passe die Engine-Stärke an. Die erste Kalibrierung bestimmt dein Rating; danach dienen Bot-Partien zum Üben.'],
+                ['Partie finden', 'Wähle unter Partien Online-PvP oder Bot, Farbe und Bedenkzeit. Ranglistenpartien ändern dein Rating; Klassisch ist ohne Wertung.'],
+                ['Züge auf dem Brett', 'Ziehe oder tippe zum Ziehen. Rechtsklick zeichnet Pfeile, Linksklick entfernt sie. Bei einer Umwandlung wählst du eine Figur.'],
+                ['Uhr und Steuerung', 'Behalte beide Uhren im Blick. Gegen Bots kannst du einen Zug zurücknehmen; in jeder Partie kannst du Remis anbieten oder aufgeben.'],
+                ['Analyse und Ergebnis', 'Öffne nach einer Partie die Analyse für Bewertung, besten Zug und Zugbewertung. Gehe die Züge durch oder kopiere das PGN.'],
+                ['Ranglisten und Rating', 'Sieh Online-, Bot- und Klassisch-, Rapid-, Blitz- und Bullet-Ranglisten an. Gewertete Online-Partien aktualisieren dein Rating.'],
+                ['Missionen und Erfolge', 'Verfolge Ziele, Fortschritt und Belohnungen bei Missionen. Freigeschaltete Abzeichen findest du unter Erfolge in den Einstellungen.'],
+                ['Vereine', 'Entdecke Vereine, nimm an Gesprächen und Herausforderungen teil oder gründe eine eigene Gemeinschaft.'],
+                ['Freunde und Shop', 'Finde Spieler, chatte mit Freunden und teile Herausforderungen. Kaufe Rahmen, Profilcover und Figuren-Skins mit Camarcoins.']
             ] },
-            hi: { bots: 'बॉट्स', play: 'मैच', ranks: 'रैंक', clubs: 'क्लब', shop: 'दुकान', friends: 'मित्र', guide: 'मार्गदर्शिका', settings: 'सेटिंग्स', tutorial: [
-                ['कैपीबारा शतरंज में आपका स्वागत है', 'अपनी रेटिंग सुधारें और शतरंज खेलें!']
+            hi: { bots: 'बॉट्स', play: 'मैच', ranks: 'रैंक', clubs: 'क्लब', missions: 'मिशन', shop: 'दुकान', friends: 'मित्र', guide: 'मार्गदर्शिका', settings: 'सेटिंग्स', tutorial: [
+                ['प्रोफ़ाइल और भाषा', 'अपना निक ध्यान से चुनें: इसे एक बार मुफ्त बदला जा सकता है। सेटिंग्स में नाम, फोटो, भाषा, ऑडियो और पहुँच विकल्प बदलें।'],
+                ['बॉट और कैलिब्रेशन', 'बॉट के साथ अभ्यास करें और इंजन की ताकत चुनें। शुरुआती कैलिब्रेशन रेटिंग तय करता है; उसके बाद बॉट अभ्यास के लिए हैं।'],
+                ['मैच खोजें', 'मैच में ऑनलाइन PvP या बॉट, रंग और समय चुनें। रैंक वाला मैच रेटिंग बदलता है; क्लासिक मैच अभ्यास के लिए है।'],
+                ['बोर्ड पर चालें', 'मोहरा खींचें या टैप करके चाल चलें। दायाँ क्लिक तीर बनाता है और बायाँ क्लिक उन्हें हटाता है। प्रमोशन पर नई गोटी चुनें।'],
+                ['घड़ी और नियंत्रण', 'दोनों घड़ियों पर ध्यान दें। बॉट के विरुद्ध चाल वापस लें; किसी भी मैच में ड्रॉ दें या हार मानें।'],
+                ['विश्लेषण और परिणाम', 'मैच के बाद विश्लेषण में मूल्यांकन, सर्वश्रेष्ठ चाल और चाल की गुणवत्ता देखें। चालें पलटें या PGN कॉपी करें।'],
+                ['रैंक और रेटिंग', 'ऑनलाइन, बॉट और क्लासिक, रैपिड, ब्लिट्ज व बुलेट रैंक देखें। रैंक वाले ऑनलाइन मैच रेटिंग अपडेट करते हैं।'],
+                ['मिशन और उपलब्धियाँ', 'मिशन में लक्ष्य, प्रगति और इनाम देखें। मिले हुए बैज सेटिंग्स के उपलब्धि भाग में दिखते हैं।'],
+                ['क्लब', 'क्लब खोजें, बातचीत और चुनौतियों में भाग लें या अपना समुदाय बनाएँ।'],
+                ['मित्र और दुकान', 'खिलाड़ी खोजें, मित्रों से बात करें और चुनौती साझा करें। Camarcoins से फ्रेम, प्रोफ़ाइल कवर और गोटी की स्किन खरीदें।']
             ] }
         };
         const languageNames = {
@@ -1083,10 +1207,161 @@
             pt: { of: 'de', next: 'Próximo', finish: 'Concluir', back: 'Voltar', skip: 'Pular tutorial' },
             en: { of: 'of', next: 'Next', finish: 'Finish', back: 'Back', skip: 'Skip tutorial' },
             es: { of: 'de', next: 'Siguiente', finish: 'Finalizar', back: 'Volver', skip: 'Saltar tutorial' },
-            fr: { of: 'sur', next: 'Suivant', finish: 'Terminer', back: 'Retour', skip: 'Passer le tutoriel' }
+            fr: { of: 'sur', next: 'Suivant', finish: 'Terminer', back: 'Retour', skip: 'Passer le tutoriel' },
+            ru: { of: 'из', next: 'Далее', finish: 'Готово', back: 'Назад', skip: 'Пропустить' },
+            de: { of: 'von', next: 'Weiter', finish: 'Abschließen', back: 'Zurück', skip: 'Überspringen' },
+            hi: { of: 'में से', next: 'आगे', finish: 'समाप्त', back: 'वापस', skip: 'छोड़ें' }
         };
-        const tutorialDestinations = ['bots', 'play', 'bots', 'bots', 'shop', 'friends'];
+        const tutorialDestinations = ['settings', 'bots', 'play', 'play', 'play', 'ranks', 'missions', 'clubs', 'friends', 'shop'];
         const pagePhrases = {
+            'Oponente': ['Opponent', 'Oponente', 'Adversaire'],
+            'Você': ['You', 'Tú', 'Vous'],
+            'Brancas': ['White', 'Blancas', 'Blancs'],
+            'Pretas': ['Black', 'Negras', 'Noirs'],
+            'Elo FIDE': ['FIDE rating', 'Elo FIDE', 'Classement FIDE'],
+            'Missões': ['Missions', 'Misiones', 'Missions'],
+            'Aleatório': ['Random', 'Aleatorio', 'Aléatoire'],
+            'Blitz 3+2 (padrão)': ['Blitz 3+2 (default)', 'Blitz 3+2 (predeterminado)', 'Blitz 3+2 (par défaut)'],
+            'Rápida 10+0': ['Rapid 10+0', 'Rápida 10+0', 'Rapide 10+0'],
+            'Rápida 10+3': ['Rapid 10+3', 'Rápida 10+3', 'Rapide 10+3'],
+            'Rápida 10+5': ['Rapid 10+5', 'Rápida 10+5', 'Rapide 10+5'],
+            'Ritmo aleatório': ['Random time control', 'Ritmo aleatorio', 'Cadence aléatoire'],
+            'Clássica 30+0': ['Classical 30+0', 'Clásica 30+0', 'Classique 30+0'],
+            'Clássica 30+30': ['Classical 30+30', 'Clásica 30+30', 'Classique 30+30'],
+            'Mínimo abaixo:': ['Minimum below:', 'Mínimo por debajo:', 'Minimum en dessous :'],
+            'Máximo acima:': ['Maximum above:', 'Máximo por encima:', 'Maximum au-dessus :'],
+            'Ao clicar abaixo, um link único e direto de partida será gerado no servidor Flask seguro. Qualquer jogador que acessar o link entrará diretamente na partida!': ['Click below to create a secure, direct match link. Anyone opening it can join the game.', 'Pulsa abajo para crear un enlace directo y seguro. Quien lo abra podrá unirse a la partida.', 'Cliquez ci-dessous pour créer un lien direct sécurisé. Toute personne qui l’ouvre pourra rejoindre la partie.'],
+            'Escolha o Brasão do Clã (10 opções):': ['Choose a Club Badge (10 options):', 'Elige el emblema del club (10 opciones):', 'Choisissez l’emblème du club (10 options) :'],
+            'Público (Aberto)': ['Public (Open)', 'Público (abierto)', 'Public (ouvert)'],
+            'Privado com Aprovação': ['Private (approval required)', 'Privado con aprobación', 'Privé (validation requise)'],
+            'Rating Mínimo:': ['Minimum rating:', 'Rating mínimo:', 'Classement minimum :'],
+            'Confirmar Fundação (600 🪙)': ['Confirm Creation (600 🪙)', 'Confirmar creación (600 🪙)', 'Confirmer la création (600 🪙)'],
+            'Descrição...': ['Description...', 'Descripción...', 'Description...'],
+            'Sua posição no Ranking Geral:': ['Your overall ranking:', 'Tu puesto en el ranking general:', 'Votre rang général :'],
+            'Rápidas': ['Rapid', 'Rápidas', 'Rapide'],
+            '🔍 Análise Tática do Motor': ['🔍 Engine Analysis', '🔍 Análisis del motor', '🔍 Analyse du moteur'],
+            'Próximo ▶': ['Next ▶', 'Siguiente ▶', 'Suivant ▶'],
+            'Promoção de Peão FIDE': ['FIDE Pawn Promotion', 'Promoción de peón FIDE', 'Promotion du pion FIDE'],
+            'Seu peão chegou à última fileira. Escolha a peça:': ['Your pawn reached the last rank. Choose a piece:', 'Tu peón llegó a la última fila. Elige una pieza:', 'Votre pion a atteint la dernière rangée. Choisissez une pièce :'],
+            'Envie o link abaixo para um amigo. Assim que ele clicar, a partida iniciará automaticamente no servidor!': ['Send this link to a friend. When they open it, the match starts automatically on the server.', 'Envía este enlace a un amigo. Al abrirlo, la partida comenzará automáticamente en el servidor.', 'Envoyez ce lien à un ami. En l’ouvrant, la partie démarrera automatiquement sur le serveur.'],
+            'Aguardando adversário conectar...': ['Waiting for opponent to connect...', 'Esperando a que se conecte el rival...', 'En attente de la connexion de l’adversaire...'],
+            'Propor Empate': ['Offer Draw', 'Ofrecer tablas', 'Proposer la nulle'],
+            'Botão direito: desenha setas. Clique esquerdo vazio: limpa setas.': ['Right-click draws arrows. Left-click an empty square to clear arrows.', 'Clic derecho dibuja flechas. Clic izquierdo en una casilla vacía las borra.', 'Clic droit dessine des flèches. Clic gauche sur une case vide les efface.'],
+            'Contra Bot': ['Against Bot', 'Contra un bot', 'Contre un bot'],
+            'Online PvP': ['Online PvP', 'PvP en línea', 'PvP en ligne'],
+            'Voltar Lance': ['Take Back Move', 'Deshacer jugada', 'Reprendre le coup'],
+            'Desistir': ['Resign', 'Rendirse', 'Abandonner'],
+            'Jogar Revanche': ['Play Rematch', 'Jugar revancha', 'Rejouer'],
+            'Copiar PGN': ['Copy PGN', 'Copiar PGN', 'Copier le PGN'],
+            'O nick é grátis uma única vez. Contas inativas por mais de 1 mês são deletadas conforme os termos.': ['Your username can only be chosen once for free. Accounts inactive for over a month may be deleted under the terms.', 'El apodo solo se puede elegir gratis una vez. Las cuentas inactivas durante más de un mes pueden eliminarse según las condiciones.', 'Le pseudo ne peut être choisi gratuitement qu’une fois. Les comptes inactifs depuis plus d’un mois peuvent être supprimés selon les conditions.'],
+            'Li e aceito os termos de exclusão por inatividade.': ['I accept the inactivity deletion terms.', 'Acepto las condiciones de eliminación por inactividad.', 'J’accepte les conditions de suppression pour inactivité.'],
+            'Google: configuração necessária': ['Google setup required', 'Se requiere configurar Google', 'Configuration Google requise'],
+            'O login Google será ativado quando o servidor receber as credenciais OAuth.': ['Google sign-in will be enabled after OAuth credentials are configured on the server.', 'El acceso con Google se habilitará cuando el servidor tenga las credenciales OAuth.', 'La connexion Google sera activée lorsque les identifiants OAuth seront configurés sur le serveur.'],
+            'Enfrente os bots 1 a 5 uma única vez para definir seu rating inicial.': ['Play bots 1 to 5 once to establish your initial rating.', 'Juega contra los bots 1 a 5 una vez para establecer tu rating inicial.', 'Affrontez les bots 1 à 5 une fois pour établir votre classement initial.'],
+            'Escolha sua Cor:': ['Choose your color:', 'Elige tu color:', 'Choisissez votre couleur :'],
+            'Ritmo de Jogo / Relógio:': ['Time control:', 'Ritmo de juego / reloj:', 'Cadence / pendule :'],
+            'Modo de Jogo:': ['Game mode:', 'Modo de juego:', 'Mode de jeu :'],
+            'Ou Escolha o Bot Oficial:': ['Or choose an official bot:', 'O elige un bot oficial:', 'Ou choisissez un bot officiel :'],
+            'Configurar Partida': ['Match Setup', 'Configurar partida', 'Préparer une partie'],
+            'Configurações do Jogo': ['Game Settings', 'Ajustes del juego', 'Paramètres du jeu'],
+            'Modo Calibração (Bots Oficiais)': ['Calibration Mode (Official Bots)', 'Modo de calibración (bots oficiales)', 'Mode calibrage (bots officiels)'],
+            'Iniciar Partida Contra Bot': ['Start Match against Bot', 'Iniciar partida contra bot', 'Commencer une partie contre un bot'],
+            'Gerar Link de Desafio Direto': ['Create Direct Challenge Link', 'Crear enlace de desafío directo', 'Créer un lien de défi direct'],
+            'Partida em Andamento': ['Game in Progress', 'Partida en curso', 'Partie en cours'],
+            'Partida Concluída': ['Game Finished', 'Partida finalizada', 'Partie terminée'],
+            'Selecione um lance': ['Select a move', 'Selecciona una jugada', 'Sélectionnez un coup'],
+            'Analisar Partida (Stockfish)': ['Analyze Game (Stockfish)', 'Analizar partida (Stockfish)', 'Analyser la partie (Stockfish)'],
+            'Análise Tática do Motor': ['Engine Analysis', 'Análisis del motor', 'Analyse du moteur'],
+            'Música de Fundo (Pausa em partida, retoma no menu)': ['Background Music (paused during games, resumes in the menu)', 'Música de fondo (pausa durante la partida y continúa en el menú)', 'Musique de fond (en pause pendant la partie, reprise dans le menu)'],
+            'Modo para Daltônicos (Paleta de Alto Contraste)': ['Colorblind Mode (High-Contrast Palette)', 'Modo para daltónicos (paleta de alto contraste)', 'Mode daltonien (palette à contraste élevé)'],
+            '🎵 Música de Fundo (Pausa em partida, retoma no menu)': ['🎵 Background Music (paused during games, resumes in the menu)', '🎵 Música de fondo (pausa durante la partida y continúa en el menú)', '🎵 Musique de fond (en pause pendant la partie, reprise dans le menu)'],
+            '👁️ Modo para Daltônicos (Paleta de Alto Contraste)': ['👁️ Colorblind Mode (High-Contrast Palette)', '👁️ Modo para daltónicos (paleta de alto contraste)', '👁️ Mode daltonien (palette à contraste élevé)'],
+            '1. Capivara Serena (Lofi acústico relaxante)': ['1. Calm Capybara (relaxing acoustic lofi)', '1. Capibara Serena (lofi acústico relajante)', '1. Capybara sereine (lofi acoustique relaxant)'],
+            '2. Café & Xadrez (Piano clássico melódico)': ['2. Coffee & Chess (melodic classical piano)', '2. Café y ajedrez (piano clásico melódico)', '2. Café et échecs (piano classique mélodique)'],
+            '3. Batalha Medieval (Marcha épica)': ['3. Medieval Battle (epic march)', '3. Batalla medieval (marcha épica)', '3. Bataille médiévale (marche épique)'],
+            '4. Sintetizador 8-Bit (Retrô arcade nostálgico)': ['4. 8-Bit Synth (nostalgic arcade)', '4. Sintetizador de 8 bits (arcade nostálgico)', '4. Synthétiseur 8 bits (arcade nostalgique)'],
+            '⚡ Pular animação pós-jogo de xeque-mate': ['⚡ Skip the checkmate end animation', '⚡ Omitir animación de jaque mate', '⚡ Ignorer l’animation de mat'],
+            'Dúvidas, sugestões, denúncias de abuso ou problemas na conta:': ['Questions, suggestions, abuse reports or account issues:', 'Dudas, sugerencias, denuncias de abuso o problemas de cuenta:', 'Questions, suggestions, signalements ou problèmes de compte :'],
+            '🎁 Código Promocional:': ['🎁 Promo Code:', '🎁 Código promocional:', '🎁 Code promotionnel :'],
+            '1ª confirmação: continuar': ['Confirmation 1 of 3: continue', 'Confirmación 1 de 3: continuar', 'Confirmation 1 sur 3 : continuer'],
+            'Prévia da aparência das peças no tabuleiro': ['Preview of the piece appearance on the board', 'Vista previa de las piezas en el tablero', 'Aperçu des pièces sur l’échiquier'],
+            'Testar Trilha': ['Test Music', 'Probar música', 'Tester la musique'],
+            'Testar Som': ['Test Sound', 'Probar sonido', 'Tester le son'],
+            '🔊 Sons de Lances e Capturas': ['🔊 Move and Capture Sounds', '🔊 Sonidos de movimientos y capturas', '🔊 Sons des coups et des captures'],
+            'Prévia da skin de peças': ['Piece skin preview', 'Vista previa de la skin de piezas', 'Aperçu de la skin de pièces'],
+            'Prévia de peça de xadrez': ['Chess piece preview', 'Vista previa de una pieza de ajedrez', 'Aperçu d’une pièce d’échecs'],
+            'Jogador': ['Player', 'Jugador', 'Joueur'],
+            'Rating:': ['Rating:', 'Puntuación:', 'Classement :'],
+            'Nome de perfil': ['Display name', 'Nombre de perfil', 'Nom de profil'],
+            'Foto de Perfil & Molduras': ['Profile Photo & Frames', 'Foto de perfil y marcos', 'Photo de profil et cadres'],
+            'Selos Conquistados (Badges):': ['Earned Badges:', 'Insignias obtenidas:', 'Badges obtenus :'],
+            'Efeitos Sonoros & Trilha Sonora (BGM)': ['Sound Effects & Background Music', 'Efectos de sonido y música', 'Effets sonores et musique'],
+            'Acessibilidade & Tabuleiro': ['Accessibility & Board', 'Accesibilidad y tablero', 'Accessibilité et échiquier'],
+            'Atendimento & Conta': ['Support & Account', 'Ayuda y cuenta', 'Assistance et compte'],
+            'Escolha a Trilha Sonora (4 opções):': ['Choose a Soundtrack (4 options):', 'Elige una banda sonora (4 opciones):', 'Choisissez une bande-son (4 options) :'],
+            '👑 Perfil & Capas': ['👑 Profile & Frames', '👑 Perfil y marcos', '👑 Profil et cadres'],
+            '♞ Áudio & BGM': ['♞ Audio & Music', '♞ Audio y música', '♞ Audio et musique'],
+            '♟ Acessibilidade': ['♟ Accessibility', '♟ Accesibilidad', '♟ Accessibilité'],
+            '♜ Suporte & Conta': ['♜ Support & Account', '♜ Ayuda y cuenta', '♜ Assistance et compte'],
+            'Perfil & Capas': ['Profile & Frames', 'Perfil y marcos', 'Profil et cadres'],
+            'Áudio & BGM': ['Audio & Music', 'Audio y música', 'Audio et musique'],
+            'Acessibilidade': ['Accessibility', 'Accesibilidad', 'Accessibilité'],
+            'Suporte & Conta': ['Support & Account', 'Ayuda y cuenta', 'Assistance et compte'],
+            '📷 Escolher foto': ['📷 Choose photo', '📷 Elegir foto', '📷 Choisir une photo'],
+            'PNG, JPEG ou WebP, até 1 MB.': ['PNG, JPEG or WebP, up to 1 MB.', 'PNG, JPEG o WebP, hasta 1 MB.', 'PNG, JPEG ou WebP, jusqu’à 1 Mo.'],
+            'Clique em qualquer item do catálogo para ver como fica no seu perfil antes de adquirir.': ['Select an item to preview it on your profile before purchase.', 'Selecciona un artículo para verlo en tu perfil antes de comprarlo.', 'Sélectionnez un article pour le prévisualiser sur votre profil avant achat.'],
+            'Moldura de Avatar': ['Avatar Frame', 'Marco de avatar', 'Cadre d’avatar'],
+            'Capa de Perfil': ['Profile Cover', 'Portada de perfil', 'Couverture de profil'],
+            'Skin de Peças': ['Piece Skin', 'Aspecto de piezas', 'Skin de pièces'],
+            'Moldura Carvalho': ['Oak Frame', 'Marco de roble', 'Cadre en chêne'],
+            'Moldura Bronze': ['Bronze Frame', 'Marco de bronce', 'Cadre en bronze'],
+            'Moldura Aço': ['Steel Frame', 'Marco de acero', 'Cadre en acier'],
+            'Moldura Mármore': ['Marble Frame', 'Marco de mármol', 'Cadre en marbre'],
+            'Moldura Real': ['Royal Frame', 'Marco real', 'Cadre royal'],
+            'Moldura Rubi': ['Ruby Frame', 'Marco de rubí', 'Cadre rubis'],
+            'Moldura Esmeralda': ['Emerald Frame', 'Marco de esmeralda', 'Cadre émeraude'],
+            'Moldura Safira': ['Sapphire Frame', 'Marco de zafiro', 'Cadre saphir'],
+            'Moldura Ônix': ['Onyx Frame', 'Marco de ónix', 'Cadre en onyx'],
+            'Moldura Coroa': ['Crown Frame', 'Marco de corona', 'Cadre couronne'],
+            'Esmeralda': ['Emerald', 'Esmeralda', 'Émeraude'],
+            'Gelo': ['Ice', 'Hielo', 'Glace'],
+            'Pôr do Sol': ['Sunset', 'Atardecer', 'Coucher de soleil'],
+            'Preço:': ['Price:', 'Precio:', 'Prix :'],
+            'Equipado no perfil': ['Equipped', 'Equipado', 'Équipé'],
+            'No seu inventário': ['In your inventory', 'En tu inventario', 'Dans votre inventaire'],
+            'Equipar no Perfil ✨': ['Equip ✨', 'Equipar ✨', 'Équiper ✨'],
+            'Desequipar': ['Unequip', 'Desequipar', 'Déséquiper'],
+            'Ver prévia': ['Preview', 'Vista previa', 'Aperçu'],
+            'Já possui': ['Owned', 'Ya lo tienes', 'Déjà obtenu'],
+            'Notificações': ['Notifications', 'Notificaciones', 'Notifications'],
+            'Missões Offline': ['Missions', 'Misiones', 'Missions'],
+            'Clubes de Xadrez': ['Chess Clubs', 'Clubes de ajedrez', 'Clubs d’échecs'],
+            'Classificação & Ranks': ['Standings & Rankings', 'Clasificación y rankings', 'Classement'],
+            'Amigos': ['Friends', 'Amigos', 'Amis'],
+            'Seus amigos': ['Your friends', 'Tus amigos', 'Vos amis'],
+            'Pedidos recebidos': ['Received requests', 'Solicitudes recibidas', 'Demandes reçues'],
+            'Selecione um amigo': ['Select a friend', 'Selecciona un amigo', 'Sélectionnez un ami'],
+            'Histórico de partidas': ['Game history', 'Historial de partidas', 'Historique des parties'],
+            'Bio pública (máx. 30 caracteres)': ['Public bio (max 30 characters)', 'Biografía pública (máx. 30 caracteres)', 'Bio publique (30 caractères max.)'],
+            'Loja de Cosméticos': ['Cosmetics Shop', 'Tienda de cosméticos', 'Boutique de cosmétiques'],
+            'Molduras de Avatar': ['Avatar Frames', 'Marcos de avatar', 'Cadres d’avatar'],
+            'Capas de Perfil': ['Profile Covers', 'Portadas de perfil', 'Couvertures de profil'],
+            'Skins de Peças': ['Piece Skins', 'Aspectos de piezas', 'Skins de pièces'],
+            'Adicionar amigo': ['Add Friend', 'Añadir amigo', 'Ajouter un ami'],
+            'Salvar': ['Save', 'Guardar', 'Enregistrer'],
+            'Voltar': ['Back', 'Volver', 'Retour'],
+            'Pular tutorial': ['Skip tutorial', 'Saltar tutorial', 'Passer le tutoriel'],
+            'Próximo': ['Next', 'Siguiente', 'Suivant'],
+            'Concluir': ['Finish', 'Terminar', 'Terminer'],
+            'Buscar': ['Search', 'Buscar', 'Rechercher'],
+            'Atualizar': ['Refresh', 'Actualizar', 'Actualiser'],
+            'Enviar': ['Send', 'Enviar', 'Envoyer'],
+            'Aceitar': ['Accept', 'Aceptar', 'Accepter'],
+            'Recusar': ['Decline', 'Rechazar', 'Refuser'],
+            'Sem pedidos pendentes.': ['No pending requests.', 'No hay solicitudes pendientes.', 'Aucune demande en attente.'],
+            'Nenhum amigo adicionado.': ['No friends added.', 'Aún no tienes amigos.', 'Aucun ami ajouté.'],
+            'Nenhuma partida concluída.': ['No completed games.', 'No hay partidas terminadas.', 'Aucune partie terminée.'],
+            'Este jogador ainda não adicionou uma bio.': ['This player has not added a bio yet.', 'Este jugador aún no ha añadido una biografía.', 'Ce joueur n’a pas encore ajouté de bio.'],
             'Idioma do jogo': ['Game language', 'Idioma del juego', 'Langue du jeu'],
             'Nome de usuário único': ['Unique username', 'Nombre de usuario único', 'Nom d’utilisateur unique'],
             'Senha forte (mínimo 7 caracteres)': ['Strong password (at least 7 characters)', 'Contraseña segura (mínimo 7 caracteres)', 'Mot de passe fort (7 caractères minimum)'],
@@ -1094,72 +1369,257 @@
             'Já tenho conta': ['I already have an account', 'Ya tengo una cuenta', 'J’ai déjà un compte'],
             'Configurações': ['Settings', 'Configuración', 'Paramètres'],
             'Sair': ['Log out', 'Salir', 'Déconnexion'],
-            'Partidas': ['Matches', 'Partidas', 'Parties'], 'Loja': ['Shop', 'Tienda', 'Boutique'], 'Amigos': ['Friends', 'Amigos', 'Amis'], 'Guia': ['Guide', 'Guía', 'Guide'],
-            'Modo Calibração (Bots Oficiais)': ['Calibration Mode (Official Bots)', 'Modo de calibración (Bots oficiales)', 'Mode calibrage (Bots officiels)'],
-            'Força da engine:': ['Engine strength:', 'Fuerza del motor:', 'Force du moteur :'], 'Escolha de Cor:': ['Choose Color:', 'Elige color:', 'Choisissez la couleur :'],
-            'Ritmo:': ['Time control:', 'Ritmo:', 'Cadence :'], 'Iniciar Partida contra Bot': ['Start Match against Bot', 'Iniciar partida contra bot', 'Commencer contre le bot'],
+            'Partidas': ['Matches', 'Partidas', 'Parties'], 'Loja': ['Shop', 'Tienda', 'Boutique'], 'Guia': ['Guide', 'Guía', 'Guide'],
+            'Força da engine:': ['Engine strength:', 'Fuerza del motor:', 'Force du moteur :'],
+            'Ritmo:': ['Time control:', 'Ritmo:', 'Cadence :'],
             'Ranqueada': ['Ranked', 'Clasificada', 'Classée'], 'Clássica': ['Casual', 'Clásica', 'Classique'], 'Partida Online': ['Online Match', 'Partida en línea', 'Partie en ligne'],
             'Gerar Link de Desafio': ['Generate Challenge Link', 'Generar enlace de desafío', 'Générer un lien de défi'], 'Amigos e Conversas': ['Friends and Chat', 'Amigos y chat', 'Amis et discussions'],
             'Voltar ao Menu': ['Back to Menu', 'Volver al menú', 'Retour au menu'], 'Perfil': ['Profile', 'Perfil', 'Profil'], 'Escolher foto': ['Choose photo', 'Elegir foto', 'Choisir une photo'],
             'Código Promocional Secreto': ['Secret Promo Code', 'Código promocional secreto', 'Code promotionnel secret'], 'Resgatar': ['Redeem', 'Canjear', 'Utiliser'],
             'Sons da partida': ['Match sounds', 'Sonidos de partida', 'Sons de partie'], 'Música de fundo': ['Background music', 'Música de fondo', 'Musique de fond'],
-            'Testar som': ['Test sound', 'Probar sonido', 'Tester le son'], 'Conquistas': ['Achievements', 'Logros', 'Succès'], 'Loja de Camarcoins': ['Camarcoin Shop', 'Tienda de Camarcoins', 'Boutique Camarcoins'],
+            'Conquistas': ['Achievements', 'Logros', 'Succès'], 'Loja de Camarcoins': ['Camarcoin Shop', 'Tienda de Camarcoins', 'Boutique Camarcoins'],
             'moedas': ['coins', 'monedas', 'pièces'], 'Possui': ['Owned', 'Posee', 'Possédé'], 'Comprar': ['Buy', 'Comprar', 'Acheter'],
-            'Encontrar pelo nick': ['Find by username', 'Buscar por nick', 'Rechercher par pseudo'], 'Buscar': ['Search', 'Buscar', 'Rechercher'], 'Pedidos recebidos': ['Received requests', 'Solicitudes recibidas', 'Demandes reçues'],
-            'Seus amigos': ['Your friends', 'Tus amigos', 'Vos amis'], 'Atualizar': ['Refresh', 'Actualizar', 'Actualiser'], 'Enviar': ['Send', 'Enviar', 'Envoyer'],
-            'Voltar Lance': ['Take back move', 'Deshacer jugada', 'Annuler le coup'], 'Cancelar Partida': ['Cancel Match', 'Cancelar partida', 'Annuler la partie'], 'Desistir': ['Resign', 'Rendirse', 'Abandonner'],
-            'Oferecer Empate': ['Offer Draw', 'Ofrecer tablas', 'Proposer la nulle'], 'Jogar Revanche': ['Play Rematch', 'Jugar revancha', 'Rejouer'], 'Copiar PGN': ['Copy PGN', 'Copiar PGN', 'Copier le PGN']
+            'Encontrar pelo nick': ['Find by username', 'Buscar por nick', 'Rechercher par pseudo'],
+            'Cancelar Partida': ['Cancel Match', 'Cancelar partida', 'Annuler la partie'],
+            'Oferecer Empate': ['Offer Draw', 'Ofrecer tablas', 'Proposer la nulle']
+        };
+        const additionalPagePhrases = {
+            ru: {
+                'Configurações': 'Настройки', 'Loja de Camarcoins': 'Магазин Camarcoins',
+                'Servidor online e sincronizado com a FIDE.': 'Сервер подключён и синхронизирован с ФИДЕ.',
+                'Google: configuração necessária': 'Требуется настройка Google',
+                'O login Google será ativado quando o servidor receber as credenciais OAuth.': 'Вход через Google будет включён после настройки OAuth на сервере.',
+                'Li e aceito os termos de exclusão por inatividade.': 'Я принимаю условия удаления неактивного аккаунта.',
+                'Missões': 'Задания', 'Aleatório': 'Случайно', 'Blitz 3+2 (padrão)': 'Блиц 3+2 (по умолчанию)',
+                'Rápida 10+0': 'Рапид 10+0', 'Rápida 10+3': 'Рапид 10+3', 'Rápida 10+5': 'Рапид 10+5',
+                'Ritmo aleatório': 'Случайный контроль времени', 'Clássica 30+0': 'Классика 30+0', 'Clássica 30+30': 'Классика 30+30',
+                'Mínimo abaixo:': 'Минимум ниже:', 'Máximo acima:': 'Максимум выше:',
+                'Ao clicar abaixo, um link único e direto de partida será gerado no servidor Flask seguro. Qualquer jogador que acessar o link entrará diretamente na partida!': 'Нажмите ниже, чтобы создать безопасную ссылку на партию. Каждый, кто откроет её, сможет присоединиться.',
+                'Escolha o Brasão do Clã (10 opções):': 'Выберите эмблему клуба (10 вариантов):', 'Público (Aberto)': 'Открытый',
+                'Privado com Aprovação': 'Закрытый (с подтверждением)', 'Rating Mínimo:': 'Минимальный рейтинг:',
+                'Confirmar Fundação (600 🪙)': 'Подтвердить создание (600 🪙)', 'Descrição...': 'Описание...',
+                'Sua posição no Ranking Geral:': 'Ваше место в общем рейтинге:', 'Rápidas': 'Рапид',
+                '🔍 Análise Tática do Motor': '🔍 Анализ движка', 'Próximo ▶': 'Далее ▶', 'Promoção de Peão FIDE': 'Превращение пешки по ФИДЕ',
+                'Seu peão chegou à última fileira. Escolha a peça:': 'Пешка достигла последней горизонтали. Выберите фигуру:',
+                'Envie o link abaixo para um amigo. Assim que ele clicar, a partida iniciará automaticamente no servidor!': 'Отправьте ссылку другу. После открытия партия автоматически начнётся на сервере.',
+                'Aguardando adversário conectar...': 'Ожидание подключения соперника...',
+                'Oponente': 'Соперник', 'Você': 'Вы', 'Brancas': 'Белые', 'Pretas': 'Чёрные', 'Elo FIDE': 'Рейтинг ФИДЕ',
+                'Propor Empate': 'Предложить ничью', 'Botão direito: desenha setas. Clique esquerdo vazio: limpa setas.': 'Правая кнопка рисует стрелки. Левая на пустой клетке очищает их.',
+                'Contra Bot': 'Против бота', 'Online PvP': 'Сетевая PvP-игра', 'Voltar Lance': 'Отменить ход', 'Desistir': 'Сдаться',
+                'Jogar Revanche': 'Сыграть реванш', 'Copiar PGN': 'Скопировать PGN',
+                'Perfil & Capas': 'Профиль и рамки', 'Áudio & BGM': 'Звук и музыка', 'Acessibilidade': 'Доступность', 'Suporte & Conta': 'Поддержка и аккаунт',
+                'PNG, JPEG ou WebP, até 1 MB.': 'PNG, JPEG или WebP, до 1 МБ.',
+                'Clique em qualquer item do catálogo para ver como fica no seu perfil antes de adquirir.': 'Выберите товар, чтобы увидеть его в профиле перед покупкой.',
+                '🎵 Música de Fundo (Pausa em partida, retoma no menu)': '🎵 Фоновая музыка (пауза во время партии, продолжение в меню)',
+                '👁️ Modo para Daltônicos (Paleta de Alto Contraste)': '👁️ Режим для дальтоников (высокий контраст)',
+                '1. Capivara Serena (Lofi acústico relaxante)': '1. Спокойная капибара (расслабляющий акустический лоу-фай)',
+                '2. Café & Xadrez (Piano clássico melódico)': '2. Кофе и шахматы (мелодичное классическое пианино)',
+                '3. Batalha Medieval (Marcha épica)': '3. Средневековая битва (эпический марш)',
+                '4. Sintetizador 8-Bit (Retrô arcade nostálgico)': '4. 8-битный синтезатор (ностальгическая аркада)',
+                '⚡ Pular animação pós-jogo de xeque-mate': '⚡ Пропустить анимацию после мата',
+                'Dúvidas, sugestões, denúncias de abuso ou problemas na conta:': 'Вопросы, предложения, жалобы или проблемы с аккаунтом:',
+                '🎁 Código Promocional:': '🎁 Промокод:', '1ª confirmação: continuar': 'Подтверждение 1 из 3: продолжить',
+                'Prévia da aparência das peças no tabuleiro': 'Предпросмотр фигур на доске',
+                'Missões Offline': 'Задания', 'Configurar Partida': 'Настройка партии', 'Configurações do Jogo': 'Настройки игры',
+                'Classificação & Ranks': 'Таблица рейтинга', 'Clubes de Xadrez': 'Шахматные клубы', 'Amigos': 'Друзья',
+                'Seus amigos': 'Ваши друзья', 'Pedidos recebidos': 'Входящие запросы', 'Selecione um amigo': 'Выберите друга',
+                'Histórico de partidas': 'История партий', 'Nome de perfil': 'Отображаемое имя', 'Bio pública (máx. 30 caracteres)': 'Открытая биография (до 30 символов)',
+                'Foto de Perfil & Molduras': 'Фото профиля и рамки', 'Selos Conquistados (Badges):': 'Полученные значки:',
+                'Efeitos Sonoros & Trilha Sonora (BGM)': 'Звуки и фоновая музыка', 'Acessibilidade & Tabuleiro': 'Доступность и доска',
+                'Atendimento & Conta': 'Поддержка и аккаунт', 'Loja de Cosméticos': 'Магазин оформления', 'Molduras de Avatar': 'Рамки аватара',
+                'Capas de Perfil': 'Обложки профиля', 'Skins de Peças': 'Темы фигур', 'Partida em Andamento': 'Идёт партия',
+                'Partida Concluída': 'Партия завершена', 'Selecione um lance': 'Выберите ход', 'Adicionar amigo': 'Добавить в друзья',
+                'Salvar': 'Сохранить', 'Buscar': 'Найти', 'Atualizar': 'Обновить', 'Enviar': 'Отправить', 'Aceitar': 'Принять',
+                'Recusar': 'Отклонить', 'Sem pedidos pendentes.': 'Нет ожидающих запросов.', 'Nenhum amigo adicionado.': 'Друзья ещё не добавлены.',
+                'Nenhuma partida concluída.': 'Завершённых партий нет.', 'Este jogador ainda não adicionou uma bio.': 'Игрок ещё не добавил биографию.',
+                'Escolha sua Cor:': 'Выберите цвет:', 'Ritmo de Jogo / Relógio:': 'Контроль времени:', 'Modo de Jogo:': 'Режим игры:',
+                'Escolha a Trilha Sonora (4 opções):': 'Выберите музыку (4 варианта):', 'Moldura Carvalho': 'Дубовая рамка',
+                'Moldura Bronze': 'Бронзовая рамка', 'Moldura Aço': 'Стальная рамка', 'Moldura Mármore': 'Мраморная рамка',
+                'Moldura Real': 'Королевская рамка', 'Moldura Rubi': 'Рубиновая рамка', 'Moldura Esmeralda': 'Изумрудная рамка',
+                'Moldura Safira': 'Сапфировая рамка', 'Moldura Ônix': 'Ониксовая рамка', 'Moldura Coroa': 'Рамка-корона',
+                'Moldura de Avatar': 'Рамка аватара', 'Capa de Perfil': 'Обложка профиля', 'Skin de Peças': 'Тема фигур',
+                'Equipado no perfil': 'Установлено', 'No seu inventário': 'В инвентаре', 'Equipar no Perfil ✨': 'Установить ✨',
+                'Desequipar': 'Снять', 'Ver prévia': 'Предпросмотр', 'Já possui': 'Уже есть', 'Preço:': 'Цена:', 'Comprar': 'Купить', 'moedas': 'монет',
+                'Esmeralda': 'Изумруд', 'Gelo': 'Лёд', 'Pôr do Sol': 'Закат', 'Testar Som': 'Проверить звук', 'Testar Trilha': 'Проверить музыку',
+                '🔊 Sons de Lances e Capturas': '🔊 Звуки ходов и взятий', 'Prévia da skin de peças': 'Предпросмотр темы фигур', 'Prévia de peça de xadrez': 'Предпросмотр шахматной фигуры'
+            },
+            de: {
+                'Configurações': 'Einstellungen', 'Loja de Camarcoins': 'Camarcoins-Shop',
+                'Servidor online e sincronizado com a FIDE.': 'Server online und mit der FIDE synchronisiert.',
+                'Google: configuração necessária': 'Google-Einrichtung erforderlich',
+                'O login Google será ativado quando o servidor receber as credenciais OAuth.': 'Die Google-Anmeldung wird nach Einrichtung der OAuth-Zugangsdaten aktiviert.',
+                'Li e aceito os termos de exclusão por inatividade.': 'Ich akzeptiere die Bedingungen zur Löschung inaktiver Konten.',
+                'Missões': 'Missionen', 'Aleatório': 'Zufällig', 'Blitz 3+2 (padrão)': 'Blitz 3+2 (Standard)',
+                'Rápida 10+0': 'Rapid 10+0', 'Rápida 10+3': 'Rapid 10+3', 'Rápida 10+5': 'Rapid 10+5',
+                'Ritmo aleatório': 'Zufällige Bedenkzeit', 'Clássica 30+0': 'Klassisch 30+0', 'Clássica 30+30': 'Klassisch 30+30',
+                'Mínimo abaixo:': 'Mindestens darunter:', 'Máximo acima:': 'Höchstens darüber:',
+                'Ao clicar abaixo, um link único e direto de partida será gerado no servidor Flask seguro. Qualquer jogador que acessar o link entrará diretamente na partida!': 'Erstelle unten einen sicheren direkten Spiellink. Wer ihn öffnet, kann der Partie beitreten.',
+                'Escolha o Brasão do Clã (10 opções):': 'Vereinswappen wählen (10 Optionen):', 'Público (Aberto)': 'Öffentlich (offen)',
+                'Privado com Aprovação': 'Privat (mit Genehmigung)', 'Rating Mínimo:': 'Mindestwertung:',
+                'Confirmar Fundação (600 🪙)': 'Gründung bestätigen (600 🪙)', 'Descrição...': 'Beschreibung...',
+                'Sua posição no Ranking Geral:': 'Dein Platz in der Gesamtrangliste:', 'Rápidas': 'Rapid',
+                '🔍 Análise Tática do Motor': '🔍 Engine-Analyse', 'Próximo ▶': 'Weiter ▶', 'Promoção de Peão FIDE': 'FIDE-Bauernumwandlung',
+                'Seu peão chegou à última fileira. Escolha a peça:': 'Dein Bauer hat die letzte Reihe erreicht. Wähle eine Figur:',
+                'Envie o link abaixo para um amigo. Assim que ele clicar, a partida iniciará automaticamente no servidor!': 'Sende den Link an einen Freund. Beim Öffnen startet die Partie automatisch auf dem Server.',
+                'Aguardando adversário conectar...': 'Warte auf die Verbindung des Gegners...',
+                'Oponente': 'Gegner', 'Você': 'Du', 'Brancas': 'Weiß', 'Pretas': 'Schwarz', 'Elo FIDE': 'FIDE-Wertung',
+                'Propor Empate': 'Remis anbieten', 'Botão direito: desenha setas. Clique esquerdo vazio: limpa setas.': 'Rechtsklick zeichnet Pfeile. Linksklick auf ein leeres Feld entfernt sie.',
+                'Contra Bot': 'Gegen Bot', 'Online PvP': 'Online-PvP', 'Voltar Lance': 'Zug zurücknehmen', 'Desistir': 'Aufgeben',
+                'Jogar Revanche': 'Revanche spielen', 'Copiar PGN': 'PGN kopieren',
+                'Perfil & Capas': 'Profil und Rahmen', 'Áudio & BGM': 'Audio und Musik', 'Acessibilidade': 'Barrierefreiheit', 'Suporte & Conta': 'Support und Konto',
+                'PNG, JPEG ou WebP, até 1 MB.': 'PNG, JPEG oder WebP, bis zu 1 MB.',
+                'Clique em qualquer item do catálogo para ver como fica no seu perfil antes de adquirir.': 'Wähle einen Artikel aus, um ihn vor dem Kauf im Profil anzusehen.',
+                '🎵 Música de Fundo (Pausa em partida, retoma no menu)': '🎵 Hintergrundmusik (Pause während der Partie, Fortsetzung im Menü)',
+                '👁️ Modo para Daltônicos (Paleta de Alto Contraste)': '👁️ Farbenblind-Modus (hoher Kontrast)',
+                '1. Capivara Serena (Lofi acústico relaxante)': '1. Ruhiges Capybara (entspannender Akustik-Lofi)',
+                '2. Café & Xadrez (Piano clássico melódico)': '2. Kaffee und Schach (melodisches klassisches Klavier)',
+                '3. Batalha Medieval (Marcha épica)': '3. Mittelalterliche Schlacht (epischer Marsch)',
+                '4. Sintetizador 8-Bit (Retrô arcade nostálgico)': '4. 8-Bit-Synthesizer (nostalgisches Arcade-Spiel)',
+                '⚡ Pular animação pós-jogo de xeque-mate': '⚡ Matt-Animation überspringen',
+                'Dúvidas, sugestões, denúncias de abuso ou problemas na conta:': 'Fragen, Vorschläge, Meldungen oder Kontoprobleme:',
+                '🎁 Código Promocional:': '🎁 Promo-Code:', '1ª confirmação: continuar': 'Bestätigung 1 von 3: fortfahren',
+                'Prévia da aparência das peças no tabuleiro': 'Vorschau der Figuren auf dem Brett',
+                'Missões Offline': 'Missionen', 'Configurar Partida': 'Partie einrichten', 'Configurações do Jogo': 'Spieleinstellungen',
+                'Classificação & Ranks': 'Ranglisten', 'Clubes de Xadrez': 'Schachvereine', 'Amigos': 'Freunde',
+                'Seus amigos': 'Deine Freunde', 'Pedidos recebidos': 'Eingehende Anfragen', 'Selecione um amigo': 'Freund auswählen',
+                'Histórico de partidas': 'Partieverlauf', 'Nome de perfil': 'Anzeigename', 'Bio pública (máx. 30 caracteres)': 'Öffentliche Bio (max. 30 Zeichen)',
+                'Foto de Perfil & Molduras': 'Profilbild und Rahmen', 'Selos Conquistados (Badges):': 'Verdiente Abzeichen:',
+                'Efeitos Sonoros & Trilha Sonora (BGM)': 'Soundeffekte und Hintergrundmusik', 'Acessibilidade & Tabuleiro': 'Barrierefreiheit und Brett',
+                'Atendimento & Conta': 'Support und Konto', 'Loja de Cosméticos': 'Kosmetik-Shop', 'Molduras de Avatar': 'Avatarrahmen',
+                'Capas de Perfil': 'Profilcover', 'Skins de Peças': 'Figuren-Skins', 'Partida em Andamento': 'Partie läuft',
+                'Partida Concluída': 'Partie beendet', 'Selecione um lance': 'Zug auswählen', 'Adicionar amigo': 'Freund hinzufügen',
+                'Salvar': 'Speichern', 'Buscar': 'Suchen', 'Atualizar': 'Aktualisieren', 'Enviar': 'Senden', 'Aceitar': 'Annehmen',
+                'Recusar': 'Ablehnen', 'Sem pedidos pendentes.': 'Keine offenen Anfragen.', 'Nenhum amigo adicionado.': 'Noch keine Freunde hinzugefügt.',
+                'Nenhuma partida concluída.': 'Keine abgeschlossenen Partien.', 'Este jogador ainda não adicionou uma bio.': 'Dieser Spieler hat noch keine Bio hinzugefügt.',
+                'Escolha sua Cor:': 'Farbe wählen:', 'Ritmo de Jogo / Relógio:': 'Bedenkzeit:', 'Modo de Jogo:': 'Spielmodus:',
+                'Escolha a Trilha Sonora (4 opções):': 'Soundtrack wählen (4 Optionen):', 'Moldura Carvalho': 'Eichenrahmen',
+                'Moldura Bronze': 'Bronzerahmen', 'Moldura Aço': 'Stahlrahmen', 'Moldura Mármore': 'Marmorrahmen',
+                'Moldura Real': 'Königsrahmen', 'Moldura Rubi': 'Rubinrahmen', 'Moldura Esmeralda': 'Smaragdrahmen',
+                'Moldura Safira': 'Saphirrahmen', 'Moldura Ônix': 'Onyxrahmen', 'Moldura Coroa': 'Kronenrahmen',
+                'Moldura de Avatar': 'Avatarrahmen', 'Capa de Perfil': 'Profilcover', 'Skin de Peças': 'Figuren-Skin',
+                'Equipado no perfil': 'Ausgerüstet', 'No seu inventário': 'Im Inventar', 'Equipar no Perfil ✨': 'Ausrüsten ✨',
+                'Desequipar': 'Ablegen', 'Ver prévia': 'Vorschau', 'Já possui': 'Bereits vorhanden', 'Preço:': 'Preis:', 'Comprar': 'Kaufen', 'moedas': 'Münzen',
+                'Esmeralda': 'Smaragd', 'Gelo': 'Eis', 'Pôr do Sol': 'Sonnenuntergang', 'Testar Som': 'Ton testen', 'Testar Trilha': 'Musik testen',
+                '🔊 Sons de Lances e Capturas': '🔊 Zug- und Schlaggeräusche', 'Prévia da skin de peças': 'Vorschau der Figuren-Skins', 'Prévia de peça de xadrez': 'Vorschau einer Schachfigur'
+            },
+            hi: {
+                'Configurações': 'सेटिंग्स', 'Loja de Camarcoins': 'Camarcoins दुकान',
+                'Servidor online e sincronizado com a FIDE.': 'सर्वर ऑनलाइन है और FIDE से सिंक है।',
+                'Google: configuração necessária': 'Google सेटअप आवश्यक है',
+                'O login Google será ativado quando o servidor receber as credenciais OAuth.': 'सर्वर पर OAuth क्रेडेंशियल सेट होने के बाद Google साइन-इन चालू होगा।',
+                'Li e aceito os termos de exclusão por inatividade.': 'मैं निष्क्रियता के कारण हटाने की शर्तें स्वीकार करता/करती हूँ।',
+                'Missões': 'मिशन', 'Aleatório': 'यादृच्छिक', 'Blitz 3+2 (padrão)': 'ब्लिट्ज़ 3+2 (डिफ़ॉल्ट)',
+                'Rápida 10+0': 'रैपिड 10+0', 'Rápida 10+3': 'रैपिड 10+3', 'Rápida 10+5': 'रैपिड 10+5',
+                'Ritmo aleatório': 'यादृच्छिक समय नियंत्रण', 'Clássica 30+0': 'क्लासिकल 30+0', 'Clássica 30+30': 'क्लासिकल 30+30',
+                'Mínimo abaixo:': 'न्यूनतम नीचे:', 'Máximo acima:': 'अधिकतम ऊपर:',
+                'Ao clicar abaixo, um link único e direto de partida será gerado no servidor Flask seguro. Qualquer jogador que acessar o link entrará diretamente na partida!': 'नीचे क्लिक करके सुरक्षित मैच लिंक बनाएँ। इसे खोलने वाला कोई भी खिलाड़ी मैच में शामिल हो सकता है।',
+                'Escolha o Brasão do Clã (10 opções):': 'क्लब का चिह्न चुनें (10 विकल्प):', 'Público (Aberto)': 'सार्वजनिक (खुला)',
+                'Privado com Aprovação': 'निजी (अनुमोदन आवश्यक)', 'Rating Mínimo:': 'न्यूनतम रेटिंग:',
+                'Confirmar Fundação (600 🪙)': 'स्थापना की पुष्टि करें (600 🪙)', 'Descrição...': 'विवरण...',
+                'Sua posição no Ranking Geral:': 'समग्र रैंकिंग में आपका स्थान:', 'Rápidas': 'रैपिड',
+                '🔍 Análise Tática do Motor': '🔍 इंजन विश्लेषण', 'Próximo ▶': 'आगे ▶', 'Promoção de Peão FIDE': 'FIDE प्यादा प्रमोशन',
+                'Seu peão chegou à última fileira. Escolha a peça:': 'आपका प्यादा आख़िरी पंक्ति पर पहुँच गया। मोहरा चुनें:',
+                'Envie o link abaixo para um amigo. Assim que ele clicar, a partida iniciará automaticamente no servidor!': 'नीचे का लिंक मित्र को भेजें। खोलने पर मैच सर्वर पर अपने-आप शुरू होगा।',
+                'Aguardando adversário conectar...': 'प्रतिद्वंद्वी के जुड़ने की प्रतीक्षा है...',
+                'Oponente': 'प्रतिद्वंद्वी', 'Você': 'आप', 'Brancas': 'सफ़ेद', 'Pretas': 'काले', 'Elo FIDE': 'FIDE रेटिंग',
+                'Propor Empate': 'ड्रॉ का प्रस्ताव दें', 'Botão direito: desenha setas. Clique esquerdo vazio: limpa setas.': 'दायाँ क्लिक तीर बनाता है। खाली खाने पर बायाँ क्लिक तीर हटाता है।',
+                'Contra Bot': 'बॉट के विरुद्ध', 'Online PvP': 'ऑनलाइन PvP', 'Voltar Lance': 'चाल वापस लें', 'Desistir': 'हार मानें',
+                'Jogar Revanche': 'रीमैच खेलें', 'Copiar PGN': 'PGN कॉपी करें',
+                'Perfil & Capas': 'प्रोफ़ाइल और फ्रेम', 'Áudio & BGM': 'ऑडियो और संगीत', 'Acessibilidade': 'सुलभता', 'Suporte & Conta': 'सहायता और खाता',
+                'PNG, JPEG ou WebP, até 1 MB.': 'PNG, JPEG या WebP, अधिकतम 1 MB।',
+                'Clique em qualquer item do catálogo para ver como fica no seu perfil antes de adquirir.': 'खरीदने से पहले प्रोफ़ाइल पर देखने के लिए कोई आइटम चुनें।',
+                '🎵 Música de Fundo (Pausa em partida, retoma no menu)': '🎵 बैकग्राउंड संगीत (मैच में रुकेगा, मेनू में फिर चलेगा)',
+                '👁️ Modo para Daltônicos (Paleta de Alto Contraste)': '👁️ रंग-दृष्टि मोड (उच्च कंट्रास्ट)',
+                '1. Capivara Serena (Lofi acústico relaxante)': '1. शांत कैपीबारा (आरामदायक ध्वनिक लो-फाई)',
+                '2. Café & Xadrez (Piano clássico melódico)': '2. कॉफ़ी और शतरंज (मधुर शास्त्रीय पियानो)',
+                '3. Batalha Medieval (Marcha épica)': '3. मध्ययुगीन युद्ध (महाकाव्य मार्च)',
+                '4. Sintetizador 8-Bit (Retrô arcade nostálgico)': '4. 8-बिट सिंथ (नॉस्टैल्जिक आर्केड)',
+                '⚡ Pular animação pós-jogo de xeque-mate': '⚡ मात के बाद का एनीमेशन छोड़ें',
+                'Dúvidas, sugestões, denúncias de abuso ou problemas na conta:': 'सवाल, सुझाव, रिपोर्ट या खाते की समस्याएँ:',
+                '🎁 Código Promocional:': '🎁 प्रोमो कोड:', '1ª confirmação: continuar': 'पुष्टि 1/3: जारी रखें',
+                'Prévia da aparência das peças no tabuleiro': 'बोर्ड पर मोहरों का पूर्वावलोकन',
+                'Missões Offline': 'मिशन', 'Configurar Partida': 'मैच सेटअप', 'Configurações do Jogo': 'गेम सेटिंग्स',
+                'Classificação & Ranks': 'रैंकिंग', 'Clubes de Xadrez': 'शतरंज क्लब', 'Amigos': 'मित्र',
+                'Seus amigos': 'आपके मित्र', 'Pedidos recebidos': 'प्राप्त अनुरोध', 'Selecione um amigo': 'मित्र चुनें',
+                'Histórico de partidas': 'मैच इतिहास', 'Nome de perfil': 'प्रदर्शित नाम', 'Bio pública (máx. 30 caracteres)': 'सार्वजनिक परिचय (अधिकतम 30 अक्षर)',
+                'Foto de Perfil & Molduras': 'प्रोफ़ाइल फ़ोटो और फ्रेम', 'Selos Conquistados (Badges):': 'अर्जित बैज:',
+                'Efeitos Sonoros & Trilha Sonora (BGM)': 'ध्वनि प्रभाव और बैकग्राउंड संगीत', 'Acessibilidade & Tabuleiro': 'सुलभता और बोर्ड',
+                'Atendimento & Conta': 'सहायता और खाता', 'Loja de Cosméticos': 'कॉस्मेटिक दुकान', 'Molduras de Avatar': 'अवतार फ्रेम',
+                'Capas de Perfil': 'प्रोफ़ाइल कवर', 'Skins de Peças': 'मोहरों की स्किन', 'Partida em Andamento': 'मैच जारी है',
+                'Partida Concluída': 'मैच समाप्त', 'Selecione um lance': 'चाल चुनें', 'Adicionar amigo': 'मित्र जोड़ें',
+                'Salvar': 'सहेजें', 'Buscar': 'खोजें', 'Atualizar': 'ताज़ा करें', 'Enviar': 'भेजें', 'Aceitar': 'स्वीकार करें',
+                'Recusar': 'अस्वीकार करें', 'Sem pedidos pendentes.': 'कोई अनुरोध लंबित नहीं है।', 'Nenhum amigo adicionado.': 'अभी कोई मित्र नहीं जोड़ा गया।',
+                'Nenhuma partida concluída.': 'कोई पूरा मैच नहीं।', 'Este jogador ainda não adicionou uma bio.': 'इस खिलाड़ी ने अभी परिचय नहीं जोड़ा है।',
+                'Escolha sua Cor:': 'अपना रंग चुनें:', 'Ritmo de Jogo / Relógio:': 'समय नियंत्रण:', 'Modo de Jogo:': 'गेम मोड:',
+                'Escolha a Trilha Sonora (4 opções):': 'साउंडट्रैक चुनें (4 विकल्प):', 'Moldura Carvalho': 'ओक फ्रेम',
+                'Moldura Bronze': 'कांस्य फ्रेम', 'Moldura Aço': 'स्टील फ्रेम', 'Moldura Mármore': 'संगमरमर फ्रेम',
+                'Moldura Real': 'शाही फ्रेम', 'Moldura Rubi': 'रूबी फ्रेम', 'Moldura Esmeralda': 'पन्ना फ्रेम',
+                'Moldura Safira': 'नीलम फ्रेम', 'Moldura Ônix': 'ओनिक्स फ्रेम', 'Moldura Coroa': 'मुकुट फ्रेम',
+                'Moldura de Avatar': 'अवतार फ्रेम', 'Capa de Perfil': 'प्रोफ़ाइल कवर', 'Skin de Peças': 'मोहरों की स्किन',
+                'Equipado no perfil': 'सुसज्जित', 'No seu inventário': 'आपकी सूची में', 'Equipar no Perfil ✨': 'सुसज्जित करें ✨',
+                'Desequipar': 'हटाएँ', 'Ver prévia': 'पूर्वावलोकन', 'Já possui': 'पहले से है', 'Preço:': 'कीमत:', 'Comprar': 'खरीदें', 'moedas': 'सिक्के',
+                'Esmeralda': 'पन्ना', 'Gelo': 'बर्फ़', 'Pôr do Sol': 'सूर्यास्त', 'Testar Som': 'ध्वनि जाँचें', 'Testar Trilha': 'संगीत जाँचें',
+                '🔊 Sons de Lances e Capturas': '🔊 चाल और कैप्चर की ध्वनियाँ', 'Prévia da skin de peças': 'मोहरों की स्किन का पूर्वावलोकन', 'Prévia de peça de xadrez': 'शतरंज के मोहरे का पूर्वावलोकन'
+            }
         };
 
         function switchAuthMode() {
             authIsLogin = !authIsLogin;
-            document.getElementById('auth-submit').innerText = authIsLogin ? 'Entrar' : 'Criar Conta e Jogar';
-            document.getElementById('auth-switch').innerText = authIsLogin ? 'Criar uma conta' : 'Já tenho conta';
-            document.getElementById('terms-label').classList.toggle('hidden', authIsLogin);
-            document.getElementById('auth-note').innerText = authIsLogin ? 'Entre com o nick e a senha que você cadastrou.' : 'O nick é grátis uma única vez. Contas inativas por mais de 1 mês são deletadas conforme os termos.';
+            updateAuthCopy();
         }
 
-        function setLanguage(language) {
-            currentLanguage = languageText[language] ? language : 'pt';
-            localStorage.setItem('capybara-language', currentLanguage);
-            document.documentElement.lang = currentLanguage;
-            document.getElementById('language-select').value = currentLanguage;
-            document.getElementById('auth-language-select').value = currentLanguage;
-            const languageNames = { pt: 'Português', en: 'English', es: 'Español', fr: 'Français' };
-            document.getElementById('language-trigger').innerText = `${languageNames[currentLanguage]} v`;
-            document.getElementById('auth-language-trigger').innerText = `${languageNames[currentLanguage]} v`;
-            document.getElementById('auth-language-menu').classList.add('hidden');
-            document.getElementById('lobby-language-menu').classList.add('hidden');
-            const text = languageText[currentLanguage];
-            document.getElementById('menu-bots-label').innerText = text.bots;
-            document.getElementById('menu-play-label').innerText = text.play;
-            document.getElementById('menu-shop-label').innerText = text.shop;
-            document.getElementById('menu-friends-label').innerText = text.friends;
-            document.getElementById('menu-guide-label').innerText = text.guide;
-            document.getElementById('menu-settings').innerText = text.settings;
-            const labels = tutorialLabels[currentLanguage];
-            document.getElementById('tutorial-back').innerText = labels.back;
-            document.getElementById('tutorial-skip').innerText = labels.skip;
-            if (!document.getElementById('tutorial-screen').classList.contains('hidden')) renderTutorialStep();
-            translateStaticPage();
+        function updateAuthCopy() {
+            const labels = {
+                pt: { submit: ['Entrar', 'Criar Conta e Jogar'], switch: ['Criar uma conta', 'Já tenho conta'], note: ['Entre com o nick e a senha que você cadastrou.', 'O nick é grátis uma única vez. Contas inativas por mais de 1 mês são deletadas conforme os termos.'] },
+                en: { submit: ['Sign In', 'Create Account and Play'], switch: ['Create an account', 'I already have an account'], note: ['Sign in with your registered username and password.', 'Your username can only be chosen once for free. Inactive accounts may be deleted under the terms.'] },
+                es: { submit: ['Entrar', 'Crear cuenta y jugar'], switch: ['Crear una cuenta', 'Ya tengo cuenta'], note: ['Inicia sesión con tu apodo y contraseña registrados.', 'El apodo solo se puede elegir gratis una vez. Las cuentas inactivas pueden eliminarse según las condiciones.'] },
+                fr: { submit: ['Connexion', 'Créer un compte et jouer'], switch: ['Créer un compte', 'J’ai déjà un compte'], note: ['Connectez-vous avec votre pseudo et votre mot de passe.', 'Le pseudo ne peut être choisi gratuitement qu’une fois. Les comptes inactifs peuvent être supprimés selon les conditions.'] },
+                ru: { submit: ['Войти', 'Создать аккаунт и играть'], switch: ['Создать аккаунт', 'У меня уже есть аккаунт'], note: ['Войдите с зарегистрированным именем и паролем.', 'Имя можно выбрать бесплатно только один раз. Неактивные аккаунты могут быть удалены согласно условиям.'] },
+                de: { submit: ['Anmelden', 'Konto erstellen und spielen'], switch: ['Konto erstellen', 'Ich habe bereits ein Konto'], note: ['Melde dich mit deinem registrierten Nick und Passwort an.', 'Dein Nick kann nur einmal kostenlos gewählt werden. Inaktive Konten können gemäß den Bedingungen gelöscht werden.'] },
+                hi: { submit: ['लॉग इन', 'खाता बनाएँ और खेलें'], switch: ['खाता बनाएँ', 'मेरा खाता पहले से है'], note: ['अपने पंजीकृत नाम और पासवर्ड से लॉग इन करें।', 'उपयोगकर्ता नाम केवल एक बार मुफ्त चुना जा सकता है। निष्क्रिय खाते शर्तों के अनुसार हटाए जा सकते हैं।'] }
+            }[currentLanguage];
+            document.getElementById('auth-submit').innerText = labels.submit[authIsLogin ? 0 : 1];
+            document.getElementById('auth-switch').innerText = labels.switch[authIsLogin ? 0 : 1];
+            document.getElementById('terms-label').classList.toggle('hidden', authIsLogin);
+            document.getElementById('auth-note').innerText = labels.note[authIsLogin ? 0 : 1];
         }
 
         function translateStaticPage() {
-            const languageIndex = { en: 0, es: 1, fr: 2 }[currentLanguage];
+            // Translate immutable page copy from its original text so language changes remain reversible.
+            const languageIndex = { en: 0, es: 1, fr: 2, ru: 0, de: 0, hi: 0 }[currentLanguage];
             const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
             let node;
             while ((node = walker.nextNode())) {
                 const original = node.__capybaraText ?? node.nodeValue;
                 node.__capybaraText = original;
                 const trimmed = original.trim();
-                if (languageIndex !== undefined && pagePhrases[trimmed]) node.nodeValue = original.replace(trimmed, pagePhrases[trimmed][languageIndex]);
+                const localePhrase = additionalPagePhrases[currentLanguage]?.[trimmed];
                 if (currentLanguage === 'pt') node.nodeValue = original;
+                else if (localePhrase) node.nodeValue = original.replace(trimmed, localePhrase);
+                else if (languageIndex !== undefined && pagePhrases[trimmed]) node.nodeValue = original.replace(trimmed, pagePhrases[trimmed][languageIndex]);
             }
             const placeholders = {
-                pt: ['Digite um nick', 'Mensagem'], en: ['Enter a username', 'Message'], es: ['Escribe un nick', 'Mensaje'], fr: ['Saisissez un pseudo', 'Message']
+                pt: ['Nome de usuário único', 'Senha forte (mínimo 7 caracteres)', 'Digite um nick', 'Mensagem', 'Conversar com o clube...', 'Digite o código promocional'],
+                en: ['Unique username', 'Strong password (at least 7 characters)', 'Enter a username', 'Message', 'Chat with the club...', 'Enter promo code'],
+                es: ['Nombre de usuario único', 'Contraseña segura (mínimo 7 caracteres)', 'Escribe un nick', 'Mensaje', 'Conversar con el club...', 'Introduce el código promocional'],
+                fr: ['Nom d’utilisateur unique', 'Mot de passe fort (7 caractères minimum)', 'Saisissez un pseudo', 'Message', 'Discuter avec le club...', 'Saisissez le code promotionnel'],
+                ru: ['Уникальное имя пользователя', 'Надёжный пароль (не менее 7 символов)', 'Введите имя игрока', 'Сообщение', 'Написать в клуб...', 'Введите промокод'],
+                de: ['Eindeutiger Benutzername', 'Sicheres Passwort (mindestens 7 Zeichen)', 'Nick eingeben', 'Nachricht', 'Mit dem Verein chatten...', 'Promo-Code eingeben'],
+                hi: ['अद्वितीय उपयोगकर्ता नाम', 'मज़बूत पासवर्ड (कम से कम 7 अक्षर)', 'उपयोगकर्ता नाम लिखें', 'संदेश', 'क्लब से चैट करें...', 'प्रोमो कोड लिखें']
             };
-            document.getElementById('friend-search').placeholder = placeholders[currentLanguage][0];
-            document.getElementById('chat-input').placeholder = placeholders[currentLanguage][1];
+            const localizedPlaceholders = placeholders[currentLanguage];
+            ['reg-username', 'reg-password', 'friend-search', 'chat-input', 'club-chat-input', 'promo-code-input'].forEach((id, index) => {
+                const input = document.getElementById(id);
+                if (input) input.placeholder = localizedPlaceholders[index];
+            });
+        }
+
+        function localizeStaticPhrase(source) {
+            if (currentLanguage === 'pt') return source;
+            const extended = additionalPagePhrases[currentLanguage]?.[source];
+            if (extended) return extended;
+            const index = { en: 0, es: 1, fr: 2, ru: 0, de: 0, hi: 0 }[currentLanguage];
+            return pagePhrases[source]?.[index] || source;
         }
 
         function toggleLanguageMenu(location) {
@@ -1205,6 +1665,7 @@
                     googleButton.innerText = data.google_enabled ? 'Continuar com Google' : 'Google: configuração necessária';
                     document.getElementById('auth-google-status').classList.toggle('hidden', data.google_enabled);
                     document.getElementById('google-link-button').classList.toggle('hidden', !data.google_enabled);
+                    translateStaticPage();
                 })
                 .catch(() => {});
         }
@@ -1259,11 +1720,17 @@
 
         function completeLogin(data) {
             userData.username = data.username;
+            userData.display_name = data.display_name || data.username;
+            userData.bio = data.bio || '';
             userData.coins = data.coins;
             userData.rating = data.rating;
             userData.active_frame = data.active_frame || '';
             userData.active_banner = data.active_banner || '';
+            userData.active_piece_skin = data.active_piece_skin || '';
             userData.is_admin = Boolean(data.is_admin);
+            userData.colorblind_mode = Boolean(data.colorblind_mode);
+            document.getElementById('toggle-colorblind').checked = userData.colorblind_mode;
+            document.body.classList.toggle('colorblind-mode', userData.colorblind_mode);
             inventory = JSON.parse(data.inventory || '[]');
             achievements = data.achievements || [];
             calibrationAllowed = data.calibration_allowed !== false;
@@ -1276,11 +1743,21 @@
             document.getElementById('lobby-screen').classList.remove('hidden');
             setLanguage(currentLanguage);
             updateLobbyUI();
+            document.getElementById('profile-name-input').value = userData.display_name;
+            document.getElementById('profile-bio-input').value = userData.bio;
+            updateBioCount(userData.bio);
             updateAvatarUI();
             updateCalibrationUI();
             applyActiveCosmetics();
+            if (notificationPollInterval) clearInterval(notificationPollInterval);
+            refreshNotifications();
+            notificationPollInterval = setInterval(refreshNotifications, 30000);
             checkUrlChallengeJoin();
             if (!localStorage.getItem(`capybara-tutorial-${userData.username}`)) showTutorial(false);
+        }
+
+        function pieceSkinClass(skinId) {
+            return skinId ? `piece-${skinId.replace('_', '-')}` : '';
         }
 
         function applyActiveCosmetics() {
@@ -1297,10 +1774,17 @@
                 });
                 if (frameClass) wrap.classList.add(frameClass);
             });
+            [document.getElementById('board'), document.getElementById('analysis-board')].forEach(boardElement => {
+                if (!boardElement) return;
+                Array.from(boardElement.classList).forEach(cls => {
+                    if (cls.startsWith('piece-skin-')) boardElement.classList.remove(cls);
+                });
+                if (userData.active_piece_skin) boardElement.classList.add(pieceSkinClass(userData.active_piece_skin));
+            });
         }
 
         function updateLobbyUI() {
-            document.getElementById('lbl-username').innerText = userData.username;
+            document.getElementById('lbl-username').innerText = userData.display_name || userData.username;
             document.getElementById('lbl-coins').innerText = userData.coins;
             document.getElementById('lbl-rating').innerText = userData.rating;
             let sealEl = document.getElementById('lbl-seal');
@@ -1328,8 +1812,52 @@
                 headerImage.classList.add('hidden');
                 preview.classList.add('hidden');
                 headerLetter.classList.remove('hidden');
-                headerLetter.innerText = userData.username.charAt(0).toUpperCase() || 'C';
+                headerLetter.innerText = (userData.display_name || userData.username).charAt(0).toUpperCase() || 'C';
             }
+        }
+
+        function saveProfileName() {
+            const input = document.getElementById('profile-name-input');
+            const status = document.getElementById('profile-name-status');
+            const displayName = input.value.trim();
+            fetch('/profile/name', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ display_name: displayName })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) throw new Error(data.error || 'Não foi possível salvar o nome.');
+                userData.display_name = data.display_name;
+                updateLobbyUI();
+                updateAvatarUI();
+                status.innerText = 'Nome atualizado.';
+            })
+            .catch(error => { status.innerText = error.message || 'Não foi possível salvar o nome.'; });
+        }
+
+        function updateBioCount(value) {
+            document.getElementById('profile-bio-count').innerText = `${value.length}/30`;
+        }
+
+        function saveProfileBio() {
+            const input = document.getElementById('profile-bio-input');
+            const status = document.getElementById('profile-bio-status');
+            const bio = input.value.trim();
+            fetch('/profile/bio', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ bio })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) throw new Error(data.error || 'Não foi possível salvar a bio.');
+                userData.bio = data.bio;
+                input.value = data.bio;
+                updateBioCount(data.bio);
+                status.innerText = 'Bio atualizada.';
+            })
+            .catch(error => { status.innerText = error.message || 'Não foi possível salvar a bio.'; });
         }
 
         function uploadAvatar(file) {
@@ -1412,9 +1940,10 @@
         }
 
         function openConfig() {
+            if (musicEnabled && !matchActive) startBackgroundMusic();
             document.getElementById('lobby-screen').classList.add('hidden');
             document.getElementById('config-screen').classList.remove('hidden');
-            document.getElementById('config-heading').innerText = 'Configurações';
+            document.getElementById('config-heading').innerText = localizeStaticPhrase('Configurações');
             document.getElementById('config-tools').classList.remove('hidden');
             renderShop();
             renderAchievements();
@@ -1425,7 +1954,7 @@
         function openShop() {
             document.getElementById('lobby-screen').classList.add('hidden');
             document.getElementById('config-screen').classList.remove('hidden');
-            document.getElementById('config-heading').innerText = 'Loja de Camarcoins';
+            document.getElementById('config-heading').innerText = localizeStaticPhrase('Loja de Camarcoins');
             document.getElementById('config-tools').classList.add('hidden');
             renderShop();
             translateStaticPage();
@@ -1436,9 +1965,9 @@
             document.getElementById('friends-screen').classList.add('hidden');
             document.getElementById('tutorial-screen').classList.add('hidden');
             document.getElementById('game-screen').classList.add('hidden');
-            stopBackgroundMusic();
             document.getElementById('lobby-screen').classList.remove('hidden');
             updateLobbyUI();
+            if (musicEnabled && !matchActive) startBackgroundMusic();
         }
 
         function openFriends() {
@@ -1454,7 +1983,16 @@
         }
 
         function showTutorial(reset) {
-            if (reset) tutorialIndex = 0;
+            const progressKey = `capybara-tutorial-progress-${userData.username}`;
+            if (reset) {
+                tutorialIndex = 0;
+                localStorage.removeItem(progressKey);
+            } else {
+                const savedIndex = Number.parseInt(localStorage.getItem(progressKey) || '', 10);
+                tutorialIndex = Number.isInteger(savedIndex)
+                    ? Math.max(0, Math.min(savedIndex, languageText[currentLanguage].tutorial.length - 1))
+                    : 0;
+            }
             document.getElementById('lobby-screen').classList.add('hidden');
             document.getElementById('config-screen').classList.add('hidden');
             document.getElementById('friends-screen').classList.add('hidden');
@@ -1471,19 +2009,30 @@
             document.getElementById('tutorial-text').innerText = text;
             document.getElementById('tutorial-back').classList.toggle('hidden', tutorialIndex === 0);
             document.getElementById('tutorial-next').innerText = tutorialIndex === steps.length - 1 ? labels.finish : labels.next;
-            const destinationLabels = { bots: languageText[currentLanguage].bots, play: languageText[currentLanguage].play, shop: languageText[currentLanguage].shop, friends: languageText[currentLanguage].friends };
+            const destinationLabels = {
+                bots: languageText[currentLanguage].bots,
+                play: languageText[currentLanguage].play,
+                ranks: languageText[currentLanguage].ranks,
+                missions: languageText[currentLanguage].missions,
+                clubs: languageText[currentLanguage].clubs,
+                shop: languageText[currentLanguage].shop,
+                friends: languageText[currentLanguage].friends,
+                settings: languageText[currentLanguage].settings
+            };
             document.getElementById('tutorial-action').innerText = `${currentLanguage === 'en' ? 'Open' : currentLanguage === 'es' ? 'Abrir' : currentLanguage === 'fr' ? 'Ouvrir' : 'Abrir'} ${destinationLabels[tutorialDestinations[tutorialIndex]]}`;
         }
 
         function nextTutorialStep() {
             if (tutorialIndex === languageText[currentLanguage].tutorial.length - 1) return finishTutorial();
             tutorialIndex++;
+            localStorage.setItem(`capybara-tutorial-progress-${userData.username}`, String(tutorialIndex));
             renderTutorialStep();
         }
 
         function previousTutorialStep() {
             if (tutorialIndex === 0) return;
             tutorialIndex--;
+            localStorage.setItem(`capybara-tutorial-progress-${userData.username}`, String(tutorialIndex));
             renderTutorialStep();
         }
 
@@ -1493,16 +2042,20 @@
 
         function finishTutorial() {
             localStorage.setItem(`capybara-tutorial-${userData.username}`, 'seen');
+            localStorage.removeItem(`capybara-tutorial-progress-${userData.username}`);
             document.getElementById('tutorial-screen').classList.add('hidden');
             document.getElementById('lobby-screen').classList.remove('hidden');
         }
 
         function openTutorialDestination() {
             const destination = tutorialDestinations[tutorialIndex];
-            finishTutorial();
-            if (destination === 'bots' || destination === 'play') showLobbyArea(destination);
+            localStorage.setItem(`capybara-tutorial-progress-${userData.username}`, String(tutorialIndex));
+            document.getElementById('tutorial-screen').classList.add('hidden');
+            document.getElementById('lobby-screen').classList.remove('hidden');
+            if (['bots', 'play', 'ranks', 'missions', 'clubs'].includes(destination)) showLobbyArea(destination);
             if (destination === 'shop') openShop();
             if (destination === 'friends') openFriends();
+            if (destination === 'settings') openConfig();
         }
 
         function escapeHtml(value) {
@@ -1530,8 +2083,39 @@
             })
             .then(response => response.json())
             .then(data => {
-                document.getElementById('user-search-results').innerHTML = `<span class="text-xs ${data.success ? 'text-emerald-300' : 'text-red-400'}">${escapeHtml(data.message || data.error)}</span>`;
+                const results = document.getElementById('user-search-results');
+                if (results) results.innerHTML = `<span class="text-xs ${data.success ? 'text-emerald-300' : 'text-red-400'}">${escapeHtml(data.message || data.error || '')}</span>`;
+                if (viewedPlayerName === recipient) {
+                    document.getElementById('player-profile-friend-status').innerText = data.accepted ? 'Vocês agora são amigos.' : data.success ? 'Pedido enviado.' : data.error;
+                    document.getElementById('player-profile-add-friend').classList.add('hidden');
+                }
+                if (data.success) loadFriends();
             });
+        }
+
+        function toggleNotifications() {
+            const panel = document.getElementById('notifications-panel');
+            panel.classList.toggle('hidden');
+            if (!panel.classList.contains('hidden')) refreshNotifications();
+        }
+
+        function refreshNotifications() {
+            if (!userData.username) return Promise.resolve();
+            return fetch(`/notifications?username=${encodeURIComponent(userData.username)}`)
+                .then(response => response.json())
+                .then(data => {
+                    const notifications = data.notifications || [];
+                    const count = document.getElementById('notifications-count');
+                    const list = document.getElementById('notifications-list');
+                    count.innerText = notifications.length;
+                    count.classList.toggle('hidden', notifications.length === 0);
+                    list.innerHTML = notifications.length ? notifications.map(notification => `
+                        <div class="flex items-center justify-between gap-2 border-b border-slate-800 pb-2">
+                            <button onclick="openPlayerProfile('${encodeURIComponent(notification.sender)}')" class="min-w-0 truncate text-left text-slate-200 hover:text-amber-300">${escapeHtml(notification.display_name || notification.sender)} enviou pedido</button>
+                            <div class="flex shrink-0 gap-1"><button onclick="respondToRequest('${encodeURIComponent(notification.sender)}', true)" aria-label="Aceitar pedido de ${escapeHtml(notification.sender)}" title="Aceitar" class="rounded bg-emerald-800 px-2 py-1 text-emerald-200">✓</button><button onclick="respondToRequest('${encodeURIComponent(notification.sender)}', false)" aria-label="Recusar pedido de ${escapeHtml(notification.sender)}" title="Recusar" class="rounded bg-red-950 px-2 py-1 text-red-300">×</button></div>
+                        </div>`).join('') : '<span class="text-slate-400">Nenhuma notificação nova.</span>';
+                })
+                .catch(() => {});
         }
 
         function loadFriends() {
@@ -1544,6 +2128,7 @@
                     document.getElementById('incoming-requests').innerHTML = data.incoming.length ? data.incoming.map(sender =>
                         `<div class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs"><span>${escapeHtml(sender)}</span><div class="flex gap-2 mt-2"><button onclick="respondToRequest('${encodeURIComponent(sender)}', true)" class="text-emerald-300">Aceitar</button><button onclick="respondToRequest('${encodeURIComponent(sender)}', false)" class="text-red-400">Recusar</button></div></div>`
                     ).join('') : '<span class="text-xs text-slate-400">Sem pedidos pendentes.</span>';
+                    refreshNotifications();
                 });
         }
 
@@ -1551,7 +2136,68 @@
             fetch('/friends/respond', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ sender: decodeURIComponent(encodedName), recipient: userData.username, accept })
-            }).then(() => loadFriends());
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (!data.success) throw new Error(data.error || 'Não foi possível responder ao pedido.');
+                loadFriends();
+                refreshNotifications();
+                if (viewedPlayerName === decodeURIComponent(encodedName)) openPlayerProfile(encodedName);
+            })
+            .catch(error => alert(error.message));
+        }
+
+        function openPlayerProfile(encodedName) {
+            const username = decodeURIComponent(encodedName);
+            viewedPlayerName = username;
+            fetch(`/players/${encodeURIComponent(username)}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (!data.success) throw new Error(data.error || 'Não foi possível carregar o perfil.');
+                    document.getElementById('player-profile-name').innerText = data.display_name || data.username;
+                    document.getElementById('player-profile-rating').innerText = `${data.rating} Elo`;
+                    document.getElementById('player-profile-bio').innerText = data.bio || 'Este jogador ainda não adicionou uma bio.';
+                    const avatar = document.getElementById('player-profile-avatar');
+                    const letter = document.getElementById('player-profile-avatar-letter');
+                    if (data.avatar) {
+                        avatar.src = data.avatar;
+                        avatar.classList.remove('hidden');
+                        letter.classList.add('hidden');
+                    } else {
+                        avatar.classList.add('hidden');
+                        letter.classList.remove('hidden');
+                        letter.innerText = (data.display_name || data.username).charAt(0).toUpperCase();
+                    }
+
+                    const friendStatus = {
+                        self: 'Este é o seu perfil.',
+                        friends: 'Vocês já são amigos.',
+                        sent: 'Pedido de amizade enviado.',
+                        received: 'Esta pessoa enviou um pedido. Veja as notificações.',
+                        none: ''
+                    };
+                    document.getElementById('player-profile-friend-status').innerText = friendStatus[data.friend_status] || '';
+                    document.getElementById('player-profile-add-friend').classList.toggle('hidden', data.friend_status !== 'none');
+
+                    const resultLabels = { win: 'Vitória', loss: 'Derrota', draw: 'Empate' };
+                    const resultClasses = { win: 'text-emerald-300', loss: 'text-red-300', draw: 'text-slate-300' };
+                    const history = document.getElementById('player-profile-history');
+                    history.innerHTML = data.history.length ? data.history.map(gameRecord => `
+                        <div class="flex items-center justify-between gap-2 border-b border-slate-800 py-2 text-xs">
+                            <div class="min-w-0"><span class="block truncate text-slate-200">vs ${escapeHtml(gameRecord.opponent)}</span><span class="text-[10px] text-slate-500">${escapeHtml(gameRecord.played_at || gameRecord.status)}</span></div>
+                            <span class="shrink-0 font-bold ${resultClasses[gameRecord.result] || 'text-slate-300'}">${resultLabels[gameRecord.result] || 'Partida'}</span>
+                        </div>`).join('') : '<span class="text-xs text-slate-400">Nenhuma partida concluída.</span>';
+                    document.getElementById('player-profile-modal').classList.remove('hidden');
+                })
+                .catch(error => alert(error.message || 'Não foi possível carregar o perfil.'));
+        }
+
+        function closePlayerProfile() {
+            document.getElementById('player-profile-modal').classList.add('hidden');
+        }
+
+        function sendProfileFriendRequest() {
+            if (viewedPlayerName) sendFriendRequest(encodeURIComponent(viewedPlayerName));
         }
 
         function openChat(encodedName) {
@@ -1596,9 +2242,11 @@
 
         function logout() {
             clearInterval(timerInterval);
+            clearInterval(notificationPollInterval);
+            notificationPollInterval = null;
             matchActive = false;
             fetch('/logout', { method: 'POST' }).catch(() => {});
-            userData = { username: '', rating: 1200, coins: 100, seal: 'C', showSeal: false };
+            userData = { username: '', display_name: '', bio: '', rating: 1200, coins: 100, seal: 'C', showSeal: false };
             inventory = [];
             document.getElementById('reg-username').value = '';
             document.getElementById('reg-password').value = '';
@@ -1624,7 +2272,7 @@
 
         function selectRankMode(mode) {
             selectedRankMode = mode;
-            Object.keys(classicModeNames).forEach(key => document.getElementById(`rank-mode-${key}`).classList.toggle('active', key === mode));
+            ['bullet', 'blitz', 'rapid'].forEach(key => document.getElementById(`rank-mode-${key}`).classList.toggle('active', key === mode));
             loadClassicRanking();
         }
 
@@ -1802,21 +2450,25 @@
             currentShopCategory = category;
             document.getElementById('tab-shop-frames').classList.toggle('active', category === 'frames');
             document.getElementById('tab-shop-banners').classList.toggle('active', category === 'banners');
+            document.getElementById('tab-shop-pieces').classList.toggle('active', category === 'pieces');
             renderShop();
         }
 
         function renderShop() {
             document.getElementById('shop-coins').innerText = userData.coins;
             const container = document.getElementById('shop-items');
-            const items = shopCatalog.filter(([id]) => currentShopCategory === 'frames' ? id.startsWith('frame_') : id.startsWith('banner_'));
+            const items = shopCatalog.filter(([id]) => currentShopCategory === 'frames'
+                ? id.startsWith('frame_')
+                : currentShopCategory === 'banners' ? id.startsWith('banner_') : id.startsWith('skin_'));
 
             container.innerHTML = items.map(([id, name, price]) => {
                 const owned = inventory.includes(id);
-                const isEquipped = (userData.active_frame === id || userData.active_banner === id);
+                const isEquipped = (userData.active_frame === id || userData.active_banner === id || userData.active_piece_skin === id);
                 const isSelected = (selectedShopItem === id);
                 return `
                     <div onclick="previewShopItem('${id}')" class="border ${isSelected ? 'border-amber-400 bg-amber-950/40 ring-1 ring-amber-400' : 'border-slate-700 bg-slate-900/80'} hover:border-amber-400 p-2.5 rounded-xl cursor-pointer transition flex flex-col justify-between">
                         <div>
+                            ${id.startsWith('skin_') ? `<div class="mb-2 flex h-20 items-center justify-center rounded bg-amber-100"><img src="${pieceAssetBase}wQ.svg" alt="${escapeHtml(localizeStaticPhrase('Skin de Peças'))}: ${escapeHtml(localizeStaticPhrase(name))}" class="piece-art ${pieceSkinClass(id)} h-16 w-16 object-contain" loading="lazy"></div>` : ''}
                             <div class="flex items-center justify-between gap-1 mb-1">
                                 <strong class="text-xs text-slate-100 truncate">${escapeHtml(name)}</strong>
                                 ${isEquipped ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-900 text-emerald-300 font-bold">Equipado</span>' : ''}
@@ -1833,7 +2485,7 @@
             if (!selectedShopItem && items.length > 0) {
                 previewShopItem(items[0][0]);
             } else if (selectedShopItem) {
-                previewShopItem(selectedShopItem);
+                previewShopItem(items.some(([id]) => id === selectedShopItem) ? selectedShopItem : items[0]?.[0]);
             }
             translateStaticPage();
         }
@@ -1844,12 +2496,24 @@
             if (!itemData) return;
             const [id, name, price] = itemData;
             const isFrame = id.startsWith('frame_');
+            const isSkin = id.startsWith('skin_');
             const owned = inventory.includes(id);
-            const isEquipped = (userData.active_frame === id || userData.active_banner === id);
+            const isEquipped = (userData.active_frame === id || userData.active_banner === id || userData.active_piece_skin === id);
 
-            document.getElementById('shop-preview-title').innerText = name;
-            document.getElementById('shop-preview-type').innerText = isFrame ? 'Moldura de Avatar' : 'Capa de Perfil';
-            document.getElementById('shop-preview-price').innerText = owned ? (isEquipped ? 'Equipado no perfil' : 'No seu inventário') : `Preço: ${price} moedas`;
+            document.getElementById('shop-preview-title').innerText = localizeStaticPhrase(name);
+            document.getElementById('shop-preview-type').innerText = localizeStaticPhrase(isFrame ? 'Moldura de Avatar' : isSkin ? 'Skin de Peças' : 'Capa de Perfil');
+            document.getElementById('shop-preview-price').innerText = owned
+                ? localizeStaticPhrase(isEquipped ? 'Equipado no perfil' : 'No seu inventário')
+                : `${localizeStaticPhrase('Preço:')} ${price} ${localizeStaticPhrase('moedas')}`;
+            document.getElementById('shop-piece-preview').classList.toggle('hidden', !isSkin);
+            document.getElementById('shop-piece-preview').classList.toggle('flex', isSkin);
+            document.getElementById('shop-piece-preview').setAttribute('aria-label', localizeStaticPhrase('Prévia da skin de peças'));
+            const piecePreview = document.getElementById('shop-piece-preview-img');
+            piecePreview.alt = localizeStaticPhrase('Prévia de peça de xadrez');
+            Array.from(piecePreview.classList).forEach(cls => {
+                if (cls.startsWith('piece-skin-')) piecePreview.classList.remove(cls);
+            });
+            if (isSkin) piecePreview.classList.add(pieceSkinClass(id));
 
             const previewWrap = document.getElementById('shop-avatar-frame-preview');
             Array.from(previewWrap.classList).forEach(cls => {
@@ -1874,22 +2538,23 @@
             const actionBtn = document.getElementById('shop-preview-action-btn');
             actionBtn.disabled = false;
             if (isEquipped) {
-                actionBtn.innerText = 'Desequipar';
+                actionBtn.innerText = localizeStaticPhrase('Desequipar');
                 actionBtn.className = 'bg-slate-700 hover:bg-slate-600 text-slate-300 text-xs font-bold py-1.5 px-3 rounded-lg transition';
             } else if (owned) {
-                actionBtn.innerText = 'Equipar no Perfil ✨';
+                actionBtn.innerText = localizeStaticPhrase('Equipar no Perfil ✨');
                 actionBtn.className = 'bg-emerald-700 hover:bg-emerald-600 text-white text-xs font-bold py-1.5 px-3 rounded-lg transition shadow';
             } else {
-                actionBtn.innerText = `Comprar (${price} moedas) 🪙`;
+                actionBtn.innerText = `${localizeStaticPhrase('Comprar')} (${price} ${localizeStaticPhrase('moedas')}) 🪙`;
                 actionBtn.className = 'bg-amber-600 hover:bg-amber-500 text-white text-xs font-bold py-1.5 px-3 rounded-lg transition shadow';
             }
+            translateStaticPage();
         }
 
         function executeShopPreviewAction() {
             if (!selectedShopItem) return;
             const id = selectedShopItem;
             const owned = inventory.includes(id);
-            const isEquipped = (userData.active_frame === id || userData.active_banner === id);
+            const isEquipped = (userData.active_frame === id || userData.active_banner === id || userData.active_piece_skin === id);
 
             if (isEquipped) {
                 equipItem('');
@@ -1912,6 +2577,7 @@
                 if (!data.success) return alert(data.error);
                 userData.active_frame = data.active_frame || '';
                 userData.active_banner = data.active_banner || '';
+                userData.active_piece_skin = data.active_piece_skin || '';
                 applyActiveCosmetics();
                 renderShop();
                 playEffect('purchase');
@@ -1921,9 +2587,18 @@
 
         function renderAchievements() {
             const list = document.getElementById('achievement-list');
-            list.innerHTML = achievements.length
-                ? achievements.map(seal => `<span title="${sealDescriptions[seal] || 'Conquista'}" class="bg-red-700 px-2 py-1 rounded font-bold">${seal}</span>`).join('')
-                : '<span>Nenhum selo conquistado ainda.</span>';
+            const unlockedSeals = new Set(achievements);
+            list.innerHTML = Object.entries(sealDescriptions).map(([seal, description]) => {
+                const unlocked = unlockedSeals.has(seal);
+                const localizedDescription = currentLanguage === 'fr' ? sealDescriptionsFr[seal] : description;
+                const state = currentLanguage === 'fr'
+                    ? unlocked ? 'Débloquée' : 'Verrouillée'
+                    : unlocked ? 'Desbloqueada' : 'Bloqueada';
+                const appearance = unlocked
+                    ? 'bg-red-700 text-white'
+                    : 'bg-slate-800 text-slate-500 border border-slate-700 grayscale opacity-70';
+                return `<span title="${localizedDescription}" aria-label="${state}: ${localizedDescription}" data-unlocked="${unlocked}" class="${appearance} px-2 py-1 rounded font-bold">${seal}</span>`;
+            }).join('');
         }
 
         function purchaseItem(item) {
@@ -2022,7 +2697,7 @@
                                     </div>
                                     <div class="flex flex-col min-w-0">
                                         <div class="flex items-center gap-1.5">
-                                            <span class="text-xs font-bold ${isMe ? 'text-amber-300' : 'text-slate-200'} truncate">${escapeHtml(player.username)}</span>
+                                            <button onclick="openPlayerProfile('${encodeURIComponent(player.username)}')" class="max-w-40 truncate text-left text-xs font-bold ${isMe ? 'text-amber-300' : 'text-slate-200 hover:text-amber-300'}">${escapeHtml(player.display_name || player.username)}</button>
                                             ${isMe ? '<span class="text-[9px] px-1 rounded bg-amber-600/60 text-amber-200 font-bold">Você</span>' : ''}
                                             ${player.seal ? `<span class="text-[9px] px-1 rounded bg-red-600 font-bold">${player.seal}</span>` : ''}
                                         </div>
@@ -2215,6 +2890,7 @@
         }
 
         function setupActiveGame(state) {
+            // Initialize one authoritative client board from the server's current match state.
             currentGameId = state.game_id;
             matchActive = true;
             botThinking = false;
@@ -2289,7 +2965,7 @@
             document.getElementById('btn-takeback').disabled = (state.game_type !== 'bot');
             document.getElementById('btn-takeback').classList.toggle('opacity-50', state.game_type !== 'bot');
 
-            const modeNames = { bot: 'Contra Bot', pvp: 'Online PvP' };
+            const modeNames = { bot: localizeStaticPhrase('Contra Bot'), pvp: localizeStaticPhrase('Online PvP') };
             document.getElementById('game-mode-badge').innerText = `${modeNames[state.game_type] || 'Partida'} • ${formatTimeControlName(state.time_initial, state.time_increment)}`;
             document.getElementById('game-panel-title').innerText = 'Partida em Andamento';
 
@@ -2304,13 +2980,11 @@
 
             // Configuração do Tabuleiro sem bug de tela preta e com peças locais SVG ultraleves
             let cfg = {
-                draggable: true,
+                draggable: false,
+                moveSpeed: BOARD_MOVE_SPEED,
                 position: state.fen || 'start',
                 orientation: playerColorChoice,
-                onDragStart: onDragStart,
-                onDrop: onDrop,
-                onSnapEnd: syncBoardPosition,
-                pieceTheme: '/static/pieces/{piece}.svg'
+                pieceTheme: piece => `${pieceAssetBase}${piece}.svg`
             };
 
             // Garante inicialização e redimensionamento imediatos
@@ -2329,6 +3003,7 @@
             bindClickToMove();
             startClocks();
             applyActiveCosmetics();
+            translateStaticPage();
 
             const myTurn = (game.turn() === (playerColorChoice === 'white' ? 'w' : 'b'));
             if (state.game_type === 'pvp' && !myTurn) {
@@ -2342,7 +3017,9 @@
             selectedSourceSquare = null;
             const b = document.getElementById('board');
             if (b) {
-                b.querySelectorAll('.selected-square').forEach(el => el.classList.remove('selected-square'));
+                b.querySelectorAll('.selected-square, .legal-move-square, .legal-capture-square').forEach(el => {
+                    el.classList.remove('selected-square', 'legal-move-square', 'legal-capture-square');
+                });
             }
         }
 
@@ -2353,10 +3030,16 @@
             if (b && sq) {
                 const sqEl = b.querySelector(`[data-square="${sq}"]`);
                 if (sqEl) sqEl.classList.add('selected-square');
+                game.moves({ square: sq, verbose: true }).forEach(move => {
+                    const targetEl = b.querySelector(`[data-square="${move.to}"]`);
+                    if (!targetEl) return;
+                    targetEl.classList.add(move.flags.includes('c') || move.flags.includes('e') ? 'legal-capture-square' : 'legal-move-square');
+                });
             }
         }
 
         function bindClickToMove() {
+            // Delegate square clicks so the handler survives chessboard.js DOM updates.
             const boardElement = document.getElementById('board');
             if (!boardElement || boardElement._clickToMoveBound) return;
             boardElement._clickToMoveBound = true;
@@ -2480,6 +3163,7 @@
         }
 
         function sendGameMoveToServer(moveUci) {
+            // Apply optimistically for responsive feedback, then reconcile with the server response.
             const promo = moveUci.length === 5 ? moveUci[4] : 'q';
             const from = moveUci.substring(0, 2);
             const to = moveUci.substring(2, 4);
@@ -2490,6 +3174,7 @@
                 return;
             }
 
+            // Render the player's move locally before waiting for the server response.
             board.position(game.fen());
             playMoveSound();
             cleanBoardTooltips();
@@ -2937,7 +3622,6 @@
         function testMusic() {
             unlockAudio();
             startBackgroundMusic();
-            setTimeout(stopBackgroundMusic, 4000);
         }
 
         function toggleSoundPref(enabled) {
@@ -2966,6 +3650,7 @@
         }
 
         function startBackgroundMusic() {
+            // Keep a single sequencer active and let match state own when it may run.
             if (!musicEnabled || musicTimer || matchActive) return;
 
             // 4 Trilhas Sonoras Sintetizadas
@@ -3362,8 +4047,9 @@
 
                     const cfg = {
                         position: 'start',
+                        moveSpeed: BOARD_MOVE_SPEED,
                         orientation: playerColorChoice || 'white',
-                        pieceTheme: '/static/pieces/{piece}.svg'
+                        pieceTheme: piece => `${pieceAssetBase}${piece}.svg`
                     };
                     requestAnimationFrame(() => {
                         analysisBoard = Chessboard('analysis-board', cfg);
@@ -3484,6 +4170,7 @@
         // languageText e languageNames configurados na inicialização
 
         function setLanguage(language) {
+            // Keep locale selection, menus, tutorial, and static copy synchronized from one entry point.
             currentLanguage = languageText[language] ? language : 'pt';
             localStorage.setItem('capybara-language', currentLanguage);
             document.documentElement.lang = currentLanguage;
@@ -3495,6 +4182,7 @@
             document.getElementById('lobby-language-menu').classList.add('hidden');
 
             const text = languageText[currentLanguage];
+            updateAuthCopy();
             document.getElementById('menu-bots-label').innerText = text.bots;
             document.getElementById('menu-play-label').innerText = text.play;
             document.getElementById('menu-ranks-label').innerText = text.ranks;
@@ -3503,6 +4191,12 @@
             document.getElementById('menu-friends-label').innerText = text.friends;
             document.getElementById('menu-guide-label').innerText = text.guide;
             document.getElementById('menu-settings').innerText = text.settings;
+            const labels = tutorialLabels[currentLanguage];
+            document.getElementById('tutorial-back').innerText = labels.back;
+            document.getElementById('tutorial-skip').innerText = labels.skip;
+            // Keep the current guide step in sync when the language changes.
+            if (!document.getElementById('tutorial-screen').classList.contains('hidden')) renderTutorialStep();
+            translateStaticPage();
         }
 
         function copyPGN() {

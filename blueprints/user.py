@@ -131,6 +131,38 @@ def update_avatar():
 
     return jsonify({"success": True, "avatar": avatar})
 
+@user_bp.route('/profile/name', methods=['POST'])
+def update_profile_name():
+    username = session.get('username')
+    data = request.get_json(silent=True) or {}
+    display_name = str(data.get('display_name', '')).strip()
+    if not username:
+        return jsonify({"error": "Não autenticado."}), 401
+    if not display_name or len(display_name) > 30 or any(ord(char) < 32 for char in display_name):
+        return jsonify({"error": "O nome de perfil deve ter entre 1 e 30 caracteres."}), 400
+
+    with get_db() as conn:
+        cursor = conn.execute("UPDATE users SET display_name = ? WHERE username = ?", (display_name, username))
+        if cursor.rowcount != 1:
+            return jsonify({"error": "Conta não encontrada."}), 404
+    return jsonify({"success": True, "display_name": display_name})
+
+@user_bp.route('/profile/bio', methods=['POST'])
+def update_profile_bio():
+    username = session.get('username')
+    data = request.get_json(silent=True) or {}
+    bio = str(data.get('bio', '')).strip()
+    if not username:
+        return jsonify({"error": "Não autenticado."}), 401
+    if len(bio) > 30 or any(ord(char) < 32 for char in bio):
+        return jsonify({"error": "A bio deve ter no máximo 30 caracteres."}), 400
+
+    with get_db() as conn:
+        cursor = conn.execute("UPDATE users SET bio = ? WHERE username = ?", (bio, username))
+        if cursor.rowcount != 1:
+            return jsonify({"error": "Conta não encontrada."}), 404
+    return jsonify({"success": True, "bio": bio})
+
 @user_bp.route('/profile/settings', methods=['POST'])
 def profile_settings():
     data = request.get_json(silent=True) or {}
@@ -165,17 +197,18 @@ def profile_equip():
         return jsonify({"error": "Usuário inválido."}), 400
 
     with get_db() as conn:
-        user = conn.execute("SELECT inventory, active_frame, active_banner FROM users WHERE username = ?", (username,)).fetchone()
+        user = conn.execute("SELECT inventory, active_frame, active_banner, active_piece_skin FROM users WHERE username = ?", (username,)).fetchone()
         if not user:
             return jsonify({"error": "Conta não encontrada."}), 404
 
         inventory_items = set(json.loads(user['inventory'] or '[]'))
         current_frame = user['active_frame'] or ''
         current_banner = user['active_banner'] or ''
+        current_piece_skin = user['active_piece_skin'] or ''
 
         if not item_id:
-            conn.execute("UPDATE users SET active_frame = '', active_banner = '' WHERE username = ?", (username,))
-            return jsonify({"success": True, "active_frame": '', "active_banner": ''})
+            conn.execute("UPDATE users SET active_frame = '', active_banner = '', active_piece_skin = '' WHERE username = ?", (username,))
+            return jsonify({"success": True, "active_frame": '', "active_banner": '', "active_piece_skin": ''})
 
         if item_id not in inventory_items:
             return jsonify({"error": "Você ainda não possui este item."}), 400
@@ -186,8 +219,11 @@ def profile_equip():
         elif item_id.startswith('banner_'):
             current_banner = item_id
             conn.execute("UPDATE users SET active_banner = ? WHERE username = ?", (current_banner, username))
+        elif item_id.startswith('skin_'):
+            current_piece_skin = item_id
+            conn.execute("UPDATE users SET active_piece_skin = ? WHERE username = ?", (current_piece_skin, username))
 
-    return jsonify({"success": True, "active_frame": current_frame, "active_banner": current_banner})
+    return jsonify({"success": True, "active_frame": current_frame, "active_banner": current_banner, "active_piece_skin": current_piece_skin})
 
 @user_bp.route('/account/reset', methods=['POST'])
 def reset_account():
@@ -201,7 +237,7 @@ def reset_account():
         if not user:
             return jsonify({"error": "Conta não encontrada."}), 404
 
-        conn.execute("UPDATE users SET coins = 100, rating = 1200, promo_count = 0, inventory = '[]', calibrated = 0, calibration_games = 0, avatar = '', active_frame = '', active_banner = '' WHERE username = ?", (username,))
+        conn.execute("UPDATE users SET coins = 100, rating = 1200, promo_count = 0, inventory = '[]', calibrated = 0, calibration_games = 0, avatar = '', bio = '', active_frame = '', active_banner = '', active_piece_skin = '' WHERE username = ?", (username,))
         conn.execute("DELETE FROM achievements WHERE username = ?", (username,))
         conn.execute("DELETE FROM promo_redemptions WHERE username = ?", (username,))
         conn.execute("DELETE FROM friend_requests WHERE sender = ? OR recipient = ?", (username, username))
