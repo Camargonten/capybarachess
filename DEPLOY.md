@@ -32,7 +32,15 @@ Passos para publicar esse exemplo:
 
 O Google Cloud pode exigir configuração de consentimento, domínios autorizados e, para usuários fora da lista de teste, publicação/verificação do aplicativo. Esses passos dependem da conta Google do proprietário e não podem ser concluídos neste workspace.
 
-A conta e o jogo usam SQLite. Em hospedagem, configure `DATABASE_PATH` para uma pasta persistente e protegida do host, fora da pasta pública. Não use filesystem efêmero: uma implantação ou reinicialização pode apagar contas e progresso. Faça backup regular de `capybara.db`. Os planos gratuitos variam e podem não oferecer disco persistente ou engine Stockfish; nesse caso, não há como garantir simultaneamente custo zero, dados duráveis e partidas com bot nesse provedor. Não publique o app até confirmar esses três pontos.
+A conta e o jogo usam SQLite. Para manter contas e progresso, configure `DATABASE_PATH` em armazenamento persistente e faça backups regulares. O Render Free deste projeto usa `/tmp/capybara.db` para testes online sem custo de disco; o arquivo pode ser apagado em reinicializações ou novos deploys, então não use esse ambiente como armazenamento durável. O serviço instala Stockfish por Docker e executa bots nesse plano.
+
+### Verificações de produção
+
+Com `APP_ENV=production`, a aplicação não inicia sem `SECRET_KEY`, `DATABASE_PATH` absoluto apontando para um diretório existente e gravável, e Stockfish executável. Configure `STOCKFISH_PATH` para o binário instalado pelo host ou garanta `stockfish` no `PATH`; o processo não altera permissões do arquivo. O pacote Python `stockfish` não substitui esse executável. A aplicação valida caminho e escrita, mas não detecta se o provedor preserva os dados entre deploys.
+
+O Gunicorn usa um worker e quatro threads. As rotas mutáveis leem o estado sob `BEGIN IMMEDIATE`; como o lock de escrita do SQLite é global ao arquivo, gravações de partidas diferentes também podem aguardar entre si. Mantenha um worker enquanto SQLite for o banco compartilhado; locks locais não substituem um banco multiworker distribuído. O motor limita a quatro processos concorrentes, aplica timeout de UCI e encerra/recolhe o subprocesso após cada busca.
+
+O blueprint `render.yaml` usa o plano `free` e a runtime Docker. O `Dockerfile` instala o pacote Debian Stockfish, verifica `/usr/games/stockfish` durante o build e instala as dependências Python. O blueprint aponta explicitamente `STOCKFISH_PATH` para esse executável e `DATABASE_PATH` para `/tmp/capybara.db`; nenhum disco pago é criado. Os dados desse SQLite são efêmeros e podem desaparecer em reinicializações/deploys.
 
 As contas Google são a identidade de login, mas os dados do jogo continuam no banco do servidor. Vincular Google não substitui backup e não transfere automaticamente o SQLite do computador para a hospedagem. Para migrar dados locais, faça uma cópia do banco e importe-a de forma segura antes de apontar os jogadores ao novo domínio.
 

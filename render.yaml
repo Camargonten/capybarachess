@@ -1,11 +1,12 @@
 services:
   - type: web
     name: capybara-chess
-    env: python
+    runtime: docker
     region: oregon
     plan: free
-    buildCommand: pip install -r requirements.txt
-    startCommand: gunicorn --workers 1 --threads 4 --timeout 120 --bind 0.0.0.0:$PORT xadrez:app
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /health
     envVars:
       - key: APP_ENV
         value: production
@@ -15,3 +16,7 @@ services:
         value: "true"
       - key: APP_DEBUG
         value: "false"
+      - key: DATABASE_PATH
+        value: /tmp/capybara.db
+      - key: STOCKFISH_PATH
+        value: /usr/games/stockfish

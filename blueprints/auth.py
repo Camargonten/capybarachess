@@ -21,7 +21,7 @@ def is_user_admin(username: str) -> bool:
 def build_auth_payload(username: str):
     with get_db() as conn:
         user = conn.execute("""
-                 SELECT id, username, display_name, bio, coins, rating, inventory, calibrated, avatar, google_email, is_admin,
+                 SELECT id, username, display_name, display_name_changes, bio, coins, rating, inventory, calibrated, avatar, google_email, is_admin,
                      active_frame, active_banner, active_piece_skin, calibration_games, colorblind_mode, skip_animation, bgm_choice
             FROM users WHERE username = ?
         """, (username,)).fetchone()
@@ -39,6 +39,7 @@ def build_auth_payload(username: str):
             "user_id": user['id'],
             "username": username,
             "display_name": user['display_name'] or username,
+            "display_name_changes": user['display_name_changes'] or 0,
             "bio": user['bio'] or '',
             "coins": user['coins'],
             "rating": user['rating'],

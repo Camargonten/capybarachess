@@ -182,7 +182,7 @@
         }
     </style>
 </head>
-<body class="bg-slate-900 text-slate-100 font-sans min-h-screen p-4 flex flex-col items-center justify-between">
+<body class="bg-slate-900 text-slate-100 font-sans min-h-screen p-4 flex flex-col items-center justify-between" data-piece-asset-base="{{ url_for('static', filename='pieces/') }}" data-avatar-asset-base="{{ url_for('static', filename='avatars/') }}">
 
     <div id="connection-toast" class="hidden" role="status"></div>
 
@@ -247,6 +247,11 @@
             </div>
         </div>
 
+        <div id="calibration-gate" class="hidden flex flex-col gap-3 rounded-lg border border-amber-700 bg-amber-950/40 p-4 sm:flex-row sm:items-center sm:justify-between">
+            <div><h2 class="text-sm font-bold text-amber-300">Calibração obrigatória do rating</h2><p id="calibration-gate-progress" class="text-xs text-slate-300"></p></div>
+            <button onclick="startCalibrationFlow()" class="shrink-0 rounded bg-amber-600 px-4 py-2 text-xs font-bold text-white hover:bg-amber-500">Continuar calibração</button>
+        </div>
+
         <div class="flex flex-col md:flex-row gap-4">
         <nav class="surface w-full md:w-36 shrink-0 flex flex-col gap-2 p-2 self-start" aria-label="Menu principal">
             <button id="menu-bots" onclick="playMenuSound(); showLobbyArea('bots')" class="choice active border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">♟</span> <span id="menu-bots-label">Bots</span></button>
@@ -262,7 +267,7 @@
         <div class="grid grid-cols-1 gap-4 flex-1 min-w-0">
             <div id="bots-area" class="surface p-5 rounded-lg flex flex-col gap-3">
                 <h3 class="text-lg font-bold text-amber-400">Modo Calibração (Bots Oficiais)</h3>
-                <p id="calibration-note" class="text-xs text-slate-400">Enfrente os bots 1 a 5 uma única vez para definir seu rating inicial.</p>
+                <p id="calibration-note" class="text-xs text-slate-400">Conclua duas partidas contra os bots oficiais 1 a 5 para definir seu rating inicial.</p>
                 <select id="select-bot" onchange="clearCustomStrength()" class="hidden">
                     <option value="500" data-name="Capivarão" data-seal="C">Bot 1: Capivarão (500) - Selo C</option>
                     <option value="1000" data-name="Pirata" data-seal="P">Bot 2: Pirata (1000) - Selo P</option>
@@ -281,6 +286,7 @@
                 <div id="bot-list" class="hidden grid grid-cols-1 gap-1 max-h-44 overflow-y-auto"></div>
                 <label class="text-xs text-slate-300" for="engine-strength">Força da engine: <span id="engine-strength-label">500</span></label>
                 <input id="engine-strength" type="range" min="500" max="3000" step="50" value="500" oninput="setCustomStrength(this.value)" class="accent-amber-500">
+                <p id="calibration-bot-tier" class="text-[11px] text-slate-400">Tier Stockfish 1/16</p>
 
                 <div class="flex flex-col gap-1 relative">
                     <label class="text-xs text-slate-300">Escolha de Cor:</label>
@@ -324,8 +330,14 @@
                         <button id="play-type-bot" onclick="setPlayType('bot')" class="choice active border border-slate-600 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5">
                             <span>🤖</span> Contra Bot
                         </button>
+                        <button id="play-type-classic" onclick="setPlayType('classic')" class="choice border border-slate-600 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5">
+                            <span>♟</span> Clássico
+                        </button>
+                        <button id="play-type-ranked" onclick="setPlayType('ranked')" class="choice border border-slate-600 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5">
+                            <span>🏁</span> PvP Rankeado
+                        </button>
                         <button id="play-type-pvp" onclick="setPlayType('pvp')" class="choice border border-slate-600 p-2.5 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5">
-                            <span>🔗</span> Desafio Online (Link Direto)
+                            <span>🔗</span> Desafio por Link
                         </button>
                     </div>
                 </div>
@@ -363,7 +375,7 @@
 
                 <!-- Painel específico de Bot -->
                 <div id="play-bot-config" class="flex flex-col gap-3 bg-slate-900/60 p-3.5 rounded-lg border border-slate-800">
-                    <div>
+                    <div id="classic-matchmaking-filter">
                         <div class="flex justify-between items-center mb-1">
                             <label class="text-xs font-bold text-slate-300">Filtro de Matchmaking Offline (FIDE):</label>
                             <span id="lbl-matchmake-range" class="text-[11px] font-mono text-amber-300">-100 Elo até +200 Elo</span>
@@ -390,7 +402,7 @@
                         </div>
                     </div>
 
-                    <div>
+                    <div id="official-bot-picker">
                         <label class="text-xs font-bold text-slate-300 block mb-1">Ou Escolha o Bot Oficial:</label>
                         <select id="play-bot-select" onchange="syncBotSelection(this.value)" class="bg-slate-900 border border-slate-700 p-2 rounded-lg text-xs text-amber-300 font-semibold w-full">
                             <option value="1">Bot 1: Capivarão (500) - Selo C</option>
@@ -407,11 +419,17 @@
                             <option value="12">Bot 12: Rafachess (1900) - Selo RF</option>
                         </select>
                     </div>
+                    <p id="play-bot-tier" class="text-[11px] text-slate-400" aria-live="polite">Tier Stockfish 1/16</p>
                 </div>
 
                 <!-- Painel específico de Desafio Online -->
                 <div id="play-pvp-config" class="hidden flex flex-col gap-2 bg-slate-900/60 p-3 rounded-lg border border-blue-900/40">
-                    <p class="text-xs text-blue-300">Ao clicar abaixo, um link único e direto de partida será gerado no servidor Flask seguro. Qualquer jogador que acessar o link entrará diretamente na partida!</p>
+                    <p id="play-pvp-description" class="text-xs text-blue-300"></p>
+                    <div id="ranked-queue-tools" class="hidden flex items-center justify-between gap-2 rounded border border-slate-700 bg-slate-950/70 p-3">
+                        <span id="ranked-queue-status" class="text-xs text-slate-300" role="status" aria-live="polite"></span>
+                        <button id="ranked-queue-cancel" onclick="leaveRankedQueue()" class="hidden shrink-0 rounded bg-slate-700 px-3 py-2 text-xs font-bold text-slate-200">Cancelar fila</button>
+                    </div>
+                    <p id="ranked-rating-note" class="hidden text-[11px] text-slate-400"></p>
                 </div>
 
                 <!-- Botão de Ação -->
@@ -561,6 +579,7 @@
 
             <div id="missions-area" class="hidden surface p-5 rounded-lg flex flex-col gap-3">
                 <div class="flex items-center justify-between gap-2"><h3 class="text-lg font-bold text-amber-400">Missões Offline</h3><button onclick="loadMissions()" class="text-xs text-amber-300">Atualizar</button></div>
+                <p id="missions-feedback" class="text-xs text-emerald-300" role="status" aria-live="polite"></p>
                 <div id="missions-list" class="max-h-96 overflow-y-auto flex flex-col gap-2"></div>
             </div>
         </div>
@@ -581,6 +600,9 @@
             <button id="tutorial-next" onclick="nextTutorialStep()" class="bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg text-xs font-bold">Próximo</button>
         </div>
     </div>
+    <div id="tutorial-return-control" class="hidden fixed bottom-4 left-1/2 z-40 -translate-x-1/2">
+        <button onclick="returnToTutorial()" class="rounded-lg border border-emerald-600 bg-emerald-950 px-4 py-3 text-xs font-bold text-emerald-200 shadow-lg">Voltar à Capivara Guia</button>
+    </div>
 
     <div id="friends-screen" class="hidden surface w-full max-w-4xl p-6 rounded-lg flex flex-col gap-5 my-auto">
         <div class="flex justify-between items-center border-b border-slate-700 pb-3">
@@ -589,11 +611,12 @@
         </div>
         <div class="grid grid-cols-1 md:grid-cols-3 gap-5">
             <div class="flex flex-col gap-3">
-                <label class="text-xs text-slate-300" for="friend-search">Encontrar pelo nick</label>
+                <label class="text-xs text-slate-300" for="friend-search">Buscar por ID ou nick exato</label>
                 <div class="flex gap-2">
-                    <input id="friend-search" onkeydown="if(event.key === 'Enter') searchUsers()" placeholder="Digite um nick" class="min-w-0 flex-1 bg-slate-900 border border-slate-700 p-2 rounded-lg text-sm">
+                    <input id="friend-search" onkeydown="if(event.key === 'Enter') searchUsers()" placeholder="#01 ou nick exato" class="min-w-0 flex-1 bg-slate-900 border border-slate-700 p-2 rounded-lg text-sm">
                     <button onclick="searchUsers()" class="bg-amber-600 hover:bg-amber-500 px-3 rounded-lg text-xs font-bold">Buscar</button>
                 </div>
+                <p id="friend-action-feedback" class="text-xs text-slate-400" role="status" aria-live="polite"></p>
                 <div id="user-search-results" class="flex flex-col gap-2"></div>
                 <div>
                     <h4 class="text-sm font-bold text-amber-400 mb-2">Pedidos recebidos</h4>
@@ -603,6 +626,10 @@
             <div>
                 <div class="flex items-center justify-between mb-2"><h4 class="text-sm font-bold text-amber-400">Seus amigos</h4><button onclick="loadFriends()" class="text-xs text-slate-400 hover:text-white">Atualizar</button></div>
                 <div id="friends-list" class="flex flex-col gap-2"></div>
+                <div class="mt-4 border-t border-slate-800 pt-3">
+                    <div class="mb-2 flex items-center justify-between gap-2"><h4 class="text-sm font-bold text-sky-300">Partidas ao vivo</h4><button onclick="loadFriendActiveGames()" title="Atualizar partidas ao vivo" class="text-xs text-slate-400 hover:text-white">Atualizar</button></div>
+                    <div id="friend-active-games" class="flex max-h-48 flex-col gap-2 overflow-y-auto text-xs" aria-live="polite"></div>
+                </div>
             </div>
             <div class="border border-slate-700 rounded-lg p-3 flex flex-col min-h-72">
                 <h4 id="chat-title" class="text-sm font-bold text-amber-400 border-b border-slate-700 pb-2">Selecione um amigo</h4>
@@ -622,13 +649,23 @@
                     <div class="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full bg-slate-700 font-bold" id="player-profile-avatar-wrap">
                         <span id="player-profile-avatar-letter">?</span><img id="player-profile-avatar" class="profile-photo hidden" alt="Foto de perfil">
                     </div>
-                    <div class="min-w-0"><h2 id="player-profile-name" class="truncate text-base font-bold text-amber-300"></h2><span id="player-profile-rating" class="text-xs text-slate-400"></span></div>
+                    <div class="min-w-0"><h2 id="player-profile-name" class="truncate text-base font-bold text-amber-300"></h2><span id="player-profile-id" class="text-[10px] text-slate-500"></span><span id="player-profile-rating" class="block text-xs text-slate-400"></span></div>
                 </div>
                 <button onclick="closePlayerProfile()" aria-label="Fechar perfil" title="Fechar perfil" class="rounded bg-slate-800 px-2 py-1 text-slate-300 hover:bg-slate-700">×</button>
             </div>
             <section><h3 class="mb-1 text-xs font-bold text-slate-300">Bio</h3><p id="player-profile-bio" class="break-words text-sm text-slate-200"></p></section>
-            <div class="flex items-center justify-between gap-2"><span id="player-profile-friend-status" class="text-xs text-slate-400"></span><button id="player-profile-add-friend" onclick="sendProfileFriendRequest()" class="hidden rounded bg-amber-600 px-3 py-2 text-xs font-bold text-white hover:bg-amber-500">Adicionar amigo</button></div>
+            <section><h3 class="mb-1 text-xs font-bold text-slate-300">Estatísticas</h3><p id="player-profile-stats" class="text-xs text-slate-300"></p></section>
+            <div class="flex flex-wrap items-center justify-between gap-2"><span id="player-profile-friend-status" class="text-xs text-slate-400"></span><div class="flex gap-2"><button id="player-profile-add-friend" onclick="sendProfileFriendRequest()" class="hidden rounded bg-amber-600 px-3 py-2 text-xs font-bold text-white hover:bg-amber-500">Adicionar amigo</button><button id="player-profile-challenge" onclick="sendDirectChallenge(encodeURIComponent(viewedPlayerName))" class="hidden rounded bg-sky-700 px-3 py-2 text-xs font-bold text-white hover:bg-sky-600">Desafiar para partida</button></div></div>
+            <p id="player-profile-challenge-feedback" class="text-xs text-slate-400" role="status" aria-live="polite"></p>
             <section><h3 class="mb-2 border-b border-slate-800 pb-2 text-sm font-bold text-amber-400">Histórico de partidas</h3><div id="player-profile-history" class="flex max-h-64 flex-col gap-2 overflow-y-auto"></div></section>
+        </div>
+    </div>
+
+    <div id="direct-challenge-incoming-modal" class="hidden fixed inset-0 z-[60] flex items-center justify-center bg-black/80 p-4" role="dialog" aria-modal="true" aria-labelledby="direct-challenge-heading">
+        <div class="surface flex w-full max-w-sm flex-col gap-4 rounded-lg border border-sky-700 p-5">
+            <h2 id="direct-challenge-heading" class="text-base font-bold text-sky-300">Convite para partida</h2>
+            <p id="direct-challenge-incoming-text" class="text-sm text-slate-200"></p>
+            <div class="flex justify-end gap-2"><button onclick="respondToDirectChallenge(false)" class="rounded bg-slate-700 px-3 py-2 text-xs font-bold text-slate-200">Recusar</button><button onclick="respondToDirectChallenge(true)" class="rounded bg-emerald-700 px-3 py-2 text-xs font-bold text-white">Aceitar</button></div>
         </div>
     </div>
 
@@ -670,6 +707,7 @@
                         </label>
                         <button onclick="saveProfileName()" class="bg-amber-600 hover:bg-amber-500 px-3 py-2 rounded-lg text-xs font-bold">Salvar</button>
                     </div>
+                    <p id="profile-name-cost-note" class="text-[11px] text-slate-400">Primeira alteração grátis; depois, 100 moedas por alteração.</p>
                     <p id="profile-name-status" class="text-xs text-slate-400" role="status"></p>
                     <div class="flex items-end gap-2">
                         <label class="flex-1 text-xs text-slate-300" for="profile-bio-input">Bio pública (máx. 30 caracteres)
@@ -830,6 +868,13 @@
                 <span class="text-xs text-slate-300">Prévia da aparência das peças no tabuleiro</span>
             </div>
 
+            <div id="shop-banner-preview" class="hidden items-center gap-3 rounded-lg border border-slate-700 bg-slate-900 p-3" aria-label="Prévia da capa de perfil">
+                <div class="flex h-16 w-24 shrink-0 items-center justify-center overflow-hidden rounded bg-slate-800">
+                    <img id="shop-banner-preview-img" class="h-14 w-14 object-contain" alt="Prévia da capa">
+                </div>
+                <span class="text-xs text-slate-300">Prévia da capa selecionada</span>
+            </div>
+
             <div id="shop-items" class="grid grid-cols-2 sm:grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1"></div>
         </div>
         </div>
@@ -912,6 +957,10 @@
 
             <!-- Controles em Partida e Pós-Jogo -->
             <div class="flex flex-col gap-2 pt-2 border-t border-slate-700">
+                <div id="spectator-controls" class="hidden flex flex-col gap-2 rounded border border-sky-800 bg-sky-950/40 p-3">
+                    <span class="text-center text-xs font-semibold text-sky-200">Modo observador · somente leitura</span>
+                    <button onclick="exitSpectatorGame()" class="rounded bg-slate-700 px-3 py-2 text-xs font-semibold text-slate-100 hover:bg-slate-600">Sair da partida</button>
+                </div>
                 <div id="in-game-controls" class="flex gap-2">
                     <button id="btn-takeback" onclick="takeBackMove()" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg text-xs font-semibold flex-1">Voltar Lance</button>
                     <button id="btn-offer-draw" onclick="offerDraw()" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg text-xs font-semibold flex-1">Propor Empate</button>
@@ -1033,7 +1082,7 @@
     </div>
 
     <script>
-        let userData = { username: "", display_name: "", bio: "", rating: 1200, coins: 100, seal: "C", showSeal: false, active_frame: "", active_banner: "", active_piece_skin: "", is_admin: false };
+        let userData = { user_id: 0, username: "", display_name: "", bio: "", rating: 1200, coins: 100, seal: "C", showSeal: false, active_frame: "", active_banner: "", active_piece_skin: "", is_admin: false };
         let board = null;
         let game = new Chess();
         let currentBot = { rating: 500, name: "Capivarão", seal: "C" };
@@ -1057,10 +1106,25 @@
         let resultReported = false;
         let calibrationAllowed = true;
         let isCalibrationMatch = false;
+        let rankedQueuePollInterval = null;
+        let friendsGamesPollInterval = null;
+        let spectatorPollInterval = null;
+        let spectatorMode = false;
+        let spectatorReturnToFriends = false;
+        let spectatorGameState = null;
         let selectedFriend = null;
         let viewedPlayerName = null;
         let notificationPollInterval = null;
+        let presenceHeartbeatInterval = null;
+        let directChallengePollInterval = null;
+        let directChallengePolling = false;
+        let activeIncomingDirectChallengeId = null;
+        const launchedDirectChallengeGames = new Set();
+        const notifiedDeclinedDirectChallenges = new Set();
         let tutorialIndex = 0;
+        let tutorialGateActive = false;
+        let tutorialDestinationOpen = false;
+        let tutorialNavigationAllowed = false;
         let currentLanguage = localStorage.getItem('capybara-language') || 'pt';
         let musicEnabled = localStorage.getItem('capybara-music') !== 'false';
         let musicTimer = null;
@@ -1078,6 +1142,7 @@
         let preMatchTimeControl = '180,2';
         let preMatchBotNumber = 1;
         let preMatchBotRating = 500;
+        const botStrengthTierRatings = [500, 650, 800, 950, 1100, 1250, 1400, 1550, 1700, 1850, 2000, 2150, 2300, 2500, 2750, 3000];
         let currentGameId = null;
         let pvpPollInterval = null;
         let challengeWaitInterval = null;
@@ -1085,7 +1150,29 @@
         let activeRankTab = 'online';
         let selectedShopItem = null;
         let currentShopCategory = 'frames';
-        const pieceAssetBase = new URL('../../static/pieces/', document.baseURI).href;
+        const pieceAssetBase = document.body.dataset.pieceAssetBase;
+        const avatarAssetBase = document.body.dataset.avatarAssetBase;
+        const bannerArtFiles = {
+            banner_pawn: 'pieces/wP.svg',
+            banner_knight: 'pieces/wN.svg',
+            banner_bishop: 'pieces/wB.svg',
+            banner_rook: 'pieces/wR.svg',
+            banner_queen: 'pieces/wQ.svg',
+            banner_king: 'pieces/wK.svg',
+            banner_check: 'pieces/wQ.svg',
+            banner_mate: 'pieces/wK.svg',
+            banner_knights: 'pieces/wN.svg',
+            banner_grandmaster: 'avatars/gm_legend.svg'
+        };
+
+        function shopItemImageUrl(itemId) {
+            if (itemId.startsWith('frame_')) return `${avatarAssetBase}capivara_king.svg`;
+            if (itemId.startsWith('skin_')) return `${pieceAssetBase}wQ.svg`;
+            const assetPath = bannerArtFiles[itemId] || 'pieces/wQ.svg';
+            return assetPath.startsWith('avatars/')
+                ? `${avatarAssetBase}${assetPath.slice('avatars/'.length)}`
+                : `${pieceAssetBase}${assetPath.slice('pieces/'.length)}`;
+        }
         const BOARD_MOVE_SPEED = window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 0 : 160;
         const timeModes = { '60,0': 'bullet', '60,1': 'bullet', '120,0': 'bullet', '120,1': 'bullet', '180,0': 'blitz', '180,2': 'blitz', '300,0': 'blitz', '600,0': 'rapid', '600,5': 'rapid', '1800,0': 'classic', '1800,30': 'classic' };
         const classicModeNames = { classic: 'Clássico', rapid: 'Rápida', blitz: 'Blitz', bullet: 'Bullet' };
@@ -1214,6 +1301,65 @@
         };
         const tutorialDestinations = ['settings', 'bots', 'play', 'play', 'play', 'ranks', 'missions', 'clubs', 'friends', 'shop'];
         const pagePhrases = {
+            'Calibração obrigatória do rating': ['Required rating calibration', 'Calibración obligatoria del rating', 'Calibration obligatoire du classement'],
+            'Continuar calibração': ['Continue calibration', 'Continuar calibración', 'Continuer le calibrage'],
+            'Buscar por ID ou nick exato': ['Search by ID or exact username', 'Buscar por ID o nick exacto', 'Rechercher par ID ou pseudo exact'],
+            'Clássico': ['Classic', 'Clásico', 'Classique'],
+            'PvP Rankeado': ['Ranked PvP', 'PvP clasificatorio', 'PvP classé'],
+            'Desafio por Link': ['Challenge by Link', 'Desafío por enlace', 'Défi par lien'],
+            'Buscar Bot pelo Rating': ['Find a bot by rating', 'Buscar bot por rating', 'Trouver un bot par classement'],
+            'Entrar na Fila Rankeada': ['Join ranked queue', 'Entrar en la cola clasificatoria', 'Rejoindre la file classée'],
+            'Ranqueada vale rating, moedas e selos.': ['Ranked games award rating, coins and seals.', 'Las partidas clasificatorias otorgan rating, monedas e insignias.', 'Les parties classées rapportent classement, pièces et sceaux.'],
+            'Clássica procura um bot calibrado próximo do seu rating.': ['Classic finds a calibrated bot near your rating.', 'El modo clásico busca un bot calibrado cerca de tu rating.', 'Le mode classique cherche un bot calibré proche de votre classement.'],
+            'Rating atual: {rating} Elo. A faixa de pareamento aumenta gradualmente enquanto você aguarda.': ['Current rating: {rating} Elo. The matchmaking range expands while you wait.', 'Rating actual: {rating} Elo. El rango de búsqueda aumenta mientras esperas.', 'Classement actuel : {rating} Elo. La plage de recherche s’élargit pendant l’attente.'],
+            'Pronto para jogar': ['Ready to play', 'Listo para jugar', 'Prêt à jouer'],
+            'partidas concluídas. O modo Clássico e as partidas ranqueadas serão liberados ao terminar.': ['matches completed. Classic and Ranked modes unlock when finished.', 'partidas completadas. Los modos Clásico y Clasificado se desbloquean al terminar.', 'parties terminées. Les modes Classique et Classé seront débloqués ensuite.'],
+            'Calibração concluída. Seu rating inicial foi definido; os bots de treino não alteram o rating global.': ['Calibration complete. Your initial rating is set; practice bots do not change your global rating.', 'Calibración completada. Tu rating inicial está definido; los bots de práctica no cambian el rating global.', 'Calibrage terminé. Votre classement initial est défini ; les bots d’entraînement ne modifient pas le classement global.'],
+            'Calibração concluída. Partidas contra bots são de treino e não alteram rating.': ['Calibration complete. Bot games are practice and do not change your rating.', 'Calibración completada. Las partidas contra bots son de práctica y no cambian tu rating.', 'Calibrage terminé. Les parties contre des bots sont des entraînements et ne modifient pas votre classement.'],
+            'Conclua {count} partida(s) contra os bots oficiais 1 a 5 para definir seu rating inicial.': ['Complete {count} match(es) against official bots 1–5 to set your initial rating.', 'Completa {count} partida(s) contra los bots oficiales 1–5 para definir tu rating inicial.', 'Terminez {count} partie(s) contre les bots officiels 1 à 5 pour définir votre classement initial.'],
+            'Conclua duas partidas de calibração antes de acessar o modo Clássico ou Rankeado.': ['Complete two calibration matches before accessing Classic or Ranked mode.', 'Completa dos partidas de calibración antes de acceder a los modos Clásico o Clasificado.', 'Terminez deux parties de calibrage avant d’accéder aux modes Classique ou Classé.'],
+            'Conclua duas partidas de calibração antes do modo Clássico.': ['Complete two calibration matches before Classic mode.', 'Completa dos partidas de calibración antes del modo Clásico.', 'Terminez deux parties de calibrage avant le mode Classique.'],
+            'Partidas ao vivo': ['Live games', 'Partidas en vivo', 'Parties en direct'],
+            'Atualizar partidas ao vivo': ['Refresh live games', 'Actualizar partidas en vivo', 'Actualiser les parties en direct'],
+            'Assistir Partida': ['Watch game', 'Ver partida', 'Regarder la partie'],
+            'Voltar à Capivara Guia': ['Return to Capybara Guide', 'Volver a la Guía Capibara', 'Retour au guide Capybara'],
+            'Sair da partida': ['Leave game', 'Salir de la partida', 'Quitter la partie'],
+            'Modo observador · somente leitura': ['Spectator mode · read-only', 'Modo espectador · solo lectura', 'Mode spectateur · lecture seule'],
+            'Partida ao vivo': ['Live game', 'Partida en vivo', 'Partie en direct'],
+            'Espectador': ['Spectator', 'Espectador', 'Spectateur'],
+            'Somente leitura': ['Read-only', 'Solo lectura', 'Lecture seule'],
+            'Você está acompanhando esta partida em modo somente leitura.': ['You are watching this game in read-only mode.', 'Estás viendo esta partida en modo de solo lectura.', 'Vous regardez cette partie en lecture seule.'],
+            'Assistindo partida': ['Watching game', 'Viendo partida', 'Partie observée'],
+            'Partida encerrada': ['Game finished', 'Partida finalizada', 'Partie terminée'],
+            'Nenhum amigo está em partida agora.': ['No friends are playing right now.', 'Ningún amigo está jugando ahora.', 'Aucun ami ne joue actuellement.'],
+            'A partida já terminou. Atualize a lista para ver partidas ativas.': ['This game has ended. Refresh the list to see active games.', 'La partida terminó. Actualiza la lista para ver partidas activas.', 'La partie est terminée. Actualisez la liste pour voir les parties actives.'],
+            'Não foi possível atualizar partidas ao vivo.': ['Could not refresh live games.', 'No se pudieron actualizar las partidas en vivo.', 'Impossible d’actualiser les parties en direct.'],
+            'Somente amigos aceitos podem assistir a esta partida.': ['Only accepted friends can watch this game.', 'Solo los amigos aceptados pueden ver esta partida.', 'Seuls les amis acceptés peuvent regarder cette partie.'],
+            'Apenas os participantes ou amigos autenticados podem assistir a esta partida.': ['Only participants or authenticated friends can watch this game.', 'Solo los participantes o amigos autenticados pueden ver esta partida.', 'Seuls les participants ou amis authentifiés peuvent regarder cette partie.'],
+            'Autenticação necessária para reivindicar timeout.': ['Sign in to claim a timeout.', 'Inicia sesión para reclamar el tiempo.', 'Connectez-vous pour réclamer le temps.'],
+            'Partida': ['Game', 'Partida', 'Partie'],
+            'Empate': ['Draw', 'Empate', 'Nulle'],
+            'Vencedor': ['Winner', 'Ganador', 'Vainqueur'],
+            'O jogador recusou o convite.': ['The player declined the invitation.', 'El jugador rechazó la invitación.', 'Le joueur a refusé l’invitation.'],
+            'Enviando convite...': ['Sending invitation...', 'Enviando invitación...', 'Envoi de l’invitation...'],
+            'Procurando adversário...': ['Searching for an opponent...', 'Buscando rival...', 'Recherche d’un adversaire...'],
+            'Na fila com {rating} Elo. Procurando rating próximo...': ['Queued at {rating} Elo. Searching nearby ratings...', 'En cola con {rating} Elo. Buscando ratings cercanos...', 'Dans la file à {rating} Elo. Recherche de classements proches...'],
+            'Busca encerrada.': ['Search ended.', 'Búsqueda finalizada.', 'Recherche terminée.'],
+            'Busca cancelada.': ['Search cancelled.', 'Búsqueda cancelada.', 'Recherche annulée.'],
+            'Cancelar fila': ['Leave queue', 'Salir de la cola', 'Quitter la file'],
+            'A fila pareia jogadores online com ratings próximos. A partida atualiza o rating FIDE.': ['The queue pairs online players with nearby ratings. The game updates FIDE rating.', 'La cola empareja jugadores en línea con ratings cercanos. La partida actualiza el rating FIDE.', 'La file associe des joueurs en ligne de classements proches. La partie met à jour le classement FIDE.'],
+            'Crie um link casual para convidar alguém diretamente; essa partida não altera o rating.': ['Create a casual link to invite someone directly; this game does not affect rating.', 'Crea un enlace casual para invitar a alguien; esta partida no cambia el rating.', 'Créez un lien amical pour inviter quelqu’un ; cette partie ne modifie pas le classement.'],
+            'Primeira alteração grátis; depois, 100 moedas por alteração.': ['First name change is free; each later change costs 100 coins.', 'El primer cambio de nombre es gratis; los siguientes cuestan 100 monedas.', 'Le premier changement de nom est gratuit ; les suivants coûtent 100 pièces.'],
+            'Alterações de nome custam 100 moedas.': ['Name changes cost 100 coins.', 'Cambiar el nombre cuesta 100 monedas.', 'Les changements de nom coûtent 100 pièces.'],
+            'Nome atualizado.': ['Name updated.', 'Nombre actualizado.', 'Nom mis à jour.'],
+            'Nome atualizado gratuitamente.': ['Name updated for free.', 'Nombre actualizado gratis.', 'Nom modifié gratuitement.'],
+            'cobradas.': ['charged.', 'cobradas.', 'déduites.'],
+            'Prévia da capa de perfil': ['Profile cover preview', 'Vista previa de portada de perfil', 'Aperçu de la couverture du profil'],
+            'Primeira alteração grátis; depois, 100 moedas por alteração.': ['First name change is free; each later change costs 100 coins.', 'El primer cambio de nombre es gratis; los siguientes cuestan 100 monedas.', 'Le premier changement de nom est gratuit ; les suivants coûtent 100 pièces.'],
+            'Alterações de nome custam 100 moedas.': ['Name changes cost 100 coins.', 'Cambiar el nombre cuesta 100 monedas.', 'Les changements de nom coûtent 100 pièces.'],
+            'Nome atualizado.': ['Name updated.', 'Nombre actualizado.', 'Nom mis à jour.'],
+            'cobradas.': ['charged.', 'cobradas.', 'déduites.'],
+            'Nome atualizado gratuitamente.': ['Name updated for free.', 'Nombre actualizado gratis.', 'Nom modifié gratuitement.'],
             'Oponente': ['Opponent', 'Oponente', 'Adversaire'],
             'Você': ['You', 'Tú', 'Vous'],
             'Brancas': ['White', 'Blancas', 'Blancs'],
@@ -1385,6 +1531,43 @@
         };
         const additionalPagePhrases = {
             ru: {
+                'Clássico': 'Классический', 'PvP Rankeado': 'Рейтинговая PvP', 'Desafio por Link': 'Вызов по ссылке',
+                'Buscar Bot pelo Rating': 'Найти бота по рейтингу', 'Entrar na Fila Rankeada': 'Встать в рейтинговую очередь',
+                'Ranqueada vale rating, moedas e selos.': 'Рейтинговые партии влияют на рейтинг и дают монеты и значки.',
+                'Clássica procura um bot calibrado próximo do seu rating.': 'Классический режим подбирает откалиброванного бота с близким рейтингом.',
+                'Rating atual: {rating} Elo. A faixa de pareamento aumenta gradualmente enquanto você aguarda.': 'Текущий рейтинг: {rating} Elo. Диапазон подбора расширяется во время ожидания.',
+                'Pronto para jogar': 'Готово к игре',
+                'Partida': 'Партия', 'Empate': 'Ничья', 'Vencedor': 'Победитель',
+                'O jogador recusou o convite.': 'Игрок отклонил приглашение.', 'Enviando convite...': 'Отправка приглашения...',
+                'Procurando adversário...': 'Поиск соперника...', 'Na fila com {rating} Elo. Procurando rating próximo...': 'В очереди с рейтингом {rating} Elo. Поиск соперника рядом по рейтингу...', 'Cancelar fila': 'Покинуть очередь',
+                'Busca encerrada.': 'Поиск завершён.', 'Busca cancelada.': 'Поиск отменён.',
+                'A fila pareia jogadores online com ratings próximos. A partida atualiza o rating FIDE.': 'Очередь подбирает соперников онлайн с близким рейтингом. Партия изменяет рейтинг ФИДЕ.',
+                'Crie um link casual para convidar alguém diretamente; essa partida não altera o rating.': 'Создайте обычную ссылку-приглашение; такая партия не меняет рейтинг.',
+                'Calibração obrigatória do rating': 'Обязательная калибровка рейтинга',
+                'Continuar calibração': 'Продолжить калибровку',
+                'Buscar por ID ou nick exato': 'Поиск по ID или точному имени',
+                'Voltar à Capivara Guia': 'Вернуться к гиду Капибаре', 'Sair da partida': 'Выйти из партии',
+                'partidas concluídas. O modo Clássico e as partidas ranqueadas serão liberados ao terminar.': 'партий завершено. Классический и рейтинговый режимы откроются после завершения.',
+                'Calibração concluída. Seu rating inicial foi definido; os bots de treino não alteram o rating global.': 'Калибровка завершена. Начальный рейтинг установлен; тренировочные боты не меняют общий рейтинг.',
+                'Calibração concluída. Partidas contra bots são de treino e não alteram rating.': 'Калибровка завершена. Партии с ботами тренировочные и не меняют рейтинг.',
+                'Conclua {count} partida(s) contra os bots oficiais 1 a 5 para definir seu rating inicial.': 'Сыграйте {count} партий с официальными ботами 1–5, чтобы определить начальный рейтинг.',
+                'Conclua duas partidas de calibração antes de acessar o modo Clássico ou Rankeado.': 'Сыграйте две калибровочные партии перед доступом к классическому или рейтинговому режиму.',
+                'Conclua duas partidas de calibração antes do modo Clássico.': 'Сыграйте две калибровочные партии перед классическим режимом.',
+                'Partidas ao vivo': 'Партии в реальном времени', 'Atualizar partidas ao vivo': 'Обновить активные партии',
+                'Assistir Partida': 'Смотреть партию', 'Modo observador · somente leitura': 'Режим наблюдателя · только чтение',
+                'Partida ao vivo': 'Партия в реальном времени', 'Espectador': 'Наблюдатель', 'Somente leitura': 'Только чтение',
+                'Você está acompanhando esta partida em modo somente leitura.': 'Вы наблюдаете за партией в режиме только для чтения.',
+                'Assistindo partida': 'Просмотр партии', 'Partida encerrada': 'Партия завершена',
+                'Nenhum amigo está em partida agora.': 'Сейчас друзья не играют.',
+                'A partida já terminou. Atualize a lista para ver partidas ativas.': 'Партия завершена. Обновите список активных партий.',
+                'Não foi possível atualizar partidas ao vivo.': 'Не удалось обновить список активных партий.',
+                'Somente amigos aceitos podem assistir a esta partida.': 'Смотреть эту партию могут только принятые друзья.',
+                'Apenas os participantes ou amigos autenticados podem assistir a esta partida.': 'Смотреть эту партию могут только участники или авторизованные друзья.',
+                'Autenticação necessária para reivindicar timeout.': 'Войдите в аккаунт, чтобы заявить об окончании времени.',
+                'Primeira alteração grátis; depois, 100 moedas por alteração.': 'Первое изменение бесплатно, затем каждое стоит 100 монет.',
+                'Alterações de nome custam 100 moedas.': 'Изменение имени стоит 100 монет.',
+                'Nome atualizado.': 'Имя обновлено.', 'Nome atualizado gratuitamente.': 'Имя изменено бесплатно.',
+                'cobradas.': 'списано.', 'Prévia da capa de perfil': 'Предпросмотр обложки профиля',
                 'Configurações': 'Настройки', 'Loja de Camarcoins': 'Магазин Camarcoins',
                 'Servidor online e sincronizado com a FIDE.': 'Сервер подключён и синхронизирован с ФИДЕ.',
                 'Google: configuração necessária': 'Требуется настройка Google',
@@ -1444,6 +1627,43 @@
                 '🔊 Sons de Lances e Capturas': '🔊 Звуки ходов и взятий', 'Prévia da skin de peças': 'Предпросмотр темы фигур', 'Prévia de peça de xadrez': 'Предпросмотр шахматной фигуры'
             },
             de: {
+                'Clássico': 'Klassik', 'PvP Rankeado': 'Ranglisten-PvP', 'Desafio por Link': 'Herausforderung per Link',
+                'Buscar Bot pelo Rating': 'Bot nach Wertung suchen', 'Entrar na Fila Rankeada': 'Ranglisten-Warteschlange beitreten',
+                'Ranqueada vale rating, moedas e selos.': 'Ranglistenspiele bringen Wertung, Münzen und Abzeichen.',
+                'Clássica procura um bot calibrado próximo do seu rating.': 'Klassik sucht einen kalibrierten Bot mit ähnlicher Wertung.',
+                'Rating atual: {rating} Elo. A faixa de pareamento aumenta gradualmente enquanto você aguarda.': 'Aktuelle Wertung: {rating} Elo. Der Suchbereich erweitert sich während der Wartezeit.',
+                'Pronto para jogar': 'Spielbereit',
+                'Partida': 'Partie', 'Empate': 'Remis', 'Vencedor': 'Gewinner',
+                'O jogador recusou o convite.': 'Der Spieler hat die Einladung abgelehnt.', 'Enviando convite...': 'Einladung wird gesendet...',
+                'Procurando adversário...': 'Gegner wird gesucht...', 'Na fila com {rating} Elo. Procurando rating próximo...': 'Mit {rating} Elo in der Warteschlange. Suche nach ähnlicher Wertung...', 'Cancelar fila': 'Warteschlange verlassen',
+                'Busca encerrada.': 'Suche beendet.', 'Busca cancelada.': 'Suche abgebrochen.',
+                'A fila pareia jogadores online com ratings próximos. A partida atualiza o rating FIDE.': 'Die Warteschlange paart Online-Spieler mit ähnlicher Wertung. Das Spiel aktualisiert die FIDE-Wertung.',
+                'Crie um link casual para convidar alguém diretamente; essa partida não altera o rating.': 'Erstelle einen lockeren Einladungslink; diese Partie verändert die Wertung nicht.',
+                'Calibração obrigatória do rating': 'Verpflichtende Rating-Kalibrierung',
+                'Continuar calibração': 'Kalibrierung fortsetzen',
+                'Buscar por ID ou nick exato': 'Nach ID oder exaktem Nick suchen',
+                'Voltar à Capivara Guia': 'Zurück zum Capybara-Guide', 'Sair da partida': 'Partie verlassen',
+                'partidas concluídas. O modo Clássico e as partidas ranqueadas serão liberados ao terminar.': 'Partien abgeschlossen. Klassik und Rangliste werden danach freigeschaltet.',
+                'Calibração concluída. Seu rating inicial foi definido; os bots de treino não alteram o rating global.': 'Kalibrierung abgeschlossen. Dein Startrating steht fest; Trainingsbots ändern das Gesamtrating nicht.',
+                'Calibração concluída. Partidas contra bots são de treino e não alteram rating.': 'Kalibrierung abgeschlossen. Bot-Partien sind Training und ändern das Rating nicht.',
+                'Conclua {count} partida(s) contra os bots oficiais 1 a 5 para definir seu rating inicial.': 'Schließe {count} Partie(n) gegen die offiziellen Bots 1–5 ab, um dein Startrating festzulegen.',
+                'Conclua duas partidas de calibração antes de acessar o modo Clássico ou Rankeado.': 'Schließe zwei Kalibrierungspartien ab, bevor du Klassik oder Rangliste nutzt.',
+                'Conclua duas partidas de calibração antes do modo Clássico.': 'Schließe zwei Kalibrierungspartien vor dem Klassikmodus ab.',
+                'Partidas ao vivo': 'Laufende Partien', 'Atualizar partidas ao vivo': 'Laufende Partien aktualisieren',
+                'Assistir Partida': 'Partie ansehen', 'Modo observador · somente leitura': 'Zuschauermodus · nur lesend',
+                'Partida ao vivo': 'Laufende Partie', 'Espectador': 'Zuschauer', 'Somente leitura': 'Nur lesend',
+                'Você está acompanhando esta partida em modo somente leitura.': 'Du verfolgst diese Partie im schreibgeschützten Modus.',
+                'Assistindo partida': 'Partie wird angesehen', 'Partida encerrada': 'Partie beendet',
+                'Nenhum amigo está em partida agora.': 'Deine Freunde spielen gerade nicht.',
+                'A partida já terminou. Atualize a lista para ver partidas ativas.': 'Diese Partie ist beendet. Aktualisiere die Liste für laufende Partien.',
+                'Não foi possível atualizar partidas ao vivo.': 'Laufende Partien konnten nicht aktualisiert werden.',
+                'Somente amigos aceitos podem assistir a esta partida.': 'Nur bestätigte Freunde können diese Partie ansehen.',
+                'Apenas os participantes ou amigos autenticados podem assistir a esta partida.': 'Nur Teilnehmer oder angemeldete Freunde können diese Partie ansehen.',
+                'Autenticação necessária para reivindicar timeout.': 'Zum Melden eines Zeitablaufs musst du angemeldet sein.',
+                'Primeira alteração grátis; depois, 100 moedas por alteração.': 'Die erste Namensänderung ist kostenlos, danach kostet jede 100 Münzen.',
+                'Alterações de nome custam 100 moedas.': 'Namensänderungen kosten 100 Münzen.',
+                'Nome atualizado.': 'Name aktualisiert.', 'Nome atualizado gratuitamente.': 'Name kostenlos geändert.',
+                'cobradas.': 'abgezogen.', 'Prévia da capa de perfil': 'Vorschau des Profilcovers',
                 'Configurações': 'Einstellungen', 'Loja de Camarcoins': 'Camarcoins-Shop',
                 'Servidor online e sincronizado com a FIDE.': 'Server online und mit der FIDE synchronisiert.',
                 'Google: configuração necessária': 'Google-Einrichtung erforderlich',
@@ -1503,6 +1723,43 @@
                 '🔊 Sons de Lances e Capturas': '🔊 Zug- und Schlaggeräusche', 'Prévia da skin de peças': 'Vorschau der Figuren-Skins', 'Prévia de peça de xadrez': 'Vorschau einer Schachfigur'
             },
             hi: {
+                'Clássico': 'क्लासिक', 'PvP Rankeado': 'रैंक्ड PvP', 'Desafio por Link': 'लिंक से चुनौती',
+                'Buscar Bot pelo Rating': 'रेटिंग के अनुसार बॉट खोजें', 'Entrar na Fila Rankeada': 'रैंक्ड कतार में जाएँ',
+                'Ranqueada vale rating, moedas e selos.': 'रैंक्ड गेम रेटिंग, सिक्के और बैज देते हैं।',
+                'Clássica procura um bot calibrado próximo do seu rating.': 'क्लासिक मोड आपकी रेटिंग के पास कैलिब्रेटेड बॉट खोजता है।',
+                'Rating atual: {rating} Elo. A faixa de pareamento aumenta gradualmente enquanto você aguarda.': 'वर्तमान रेटिंग: {rating} Elo। प्रतीक्षा के साथ खोज का दायरा बढ़ता है।',
+                'Pronto para jogar': 'खेलने के लिए तैयार',
+                'Partida': 'गेम', 'Empate': 'ड्रॉ', 'Vencedor': 'विजेता',
+                'O jogador recusou o convite.': 'खिलाड़ी ने निमंत्रण अस्वीकार किया।', 'Enviando convite...': 'निमंत्रण भेजा जा रहा है...',
+                'Procurando adversário...': 'प्रतिद्वंद्वी खोजा जा रहा है...', 'Na fila com {rating} Elo. Procurando rating próximo...': '{rating} Elo के साथ कतार में। समान रेटिंग वाला खिलाड़ी खोज रहे हैं...', 'Cancelar fila': 'कतार छोड़ें',
+                'Busca encerrada.': 'खोज समाप्त हुई।', 'Busca cancelada.': 'खोज रद्द की गई।',
+                'A fila pareia jogadores online com ratings próximos. A partida atualiza o rating FIDE.': 'कतार मिलती-जुलती रेटिंग वाले ऑनलाइन खिलाड़ियों को जोड़ती है। मैच FIDE रेटिंग अपडेट करता है।',
+                'Crie um link casual para convidar alguém diretamente; essa partida não altera o rating.': 'किसी को सीधे आमंत्रित करने के लिए कैज़ुअल लिंक बनाएँ; यह गेम रेटिंग नहीं बदलता।',
+                'Calibração obrigatória do rating': 'रेटिंग का अनिवार्य अंशांकन',
+                'Continuar calibração': 'अंशांकन जारी रखें',
+                'Buscar por ID ou nick exato': 'ID या सटीक निक से खोजें',
+                'Voltar à Capivara Guia': 'कैपिबारा गाइड पर लौटें', 'Sair da partida': 'गेम से बाहर निकलें',
+                'partidas concluídas. O modo Clássico e as partidas ranqueadas serão liberados ao terminar.': 'गेम पूरे हुए। इसके बाद क्लासिक और रैंक्ड मोड खुलेंगे।',
+                'Calibração concluída. Seu rating inicial foi definido; os bots de treino não alteram o rating global.': 'अंशांकन पूरा हुआ। शुरुआती रेटिंग तय है; अभ्यास बॉट वैश्विक रेटिंग नहीं बदलते।',
+                'Calibração concluída. Partidas contra bots são de treino e não alteram rating.': 'अंशांकन पूरा हुआ। बॉट गेम अभ्यास हैं और रेटिंग नहीं बदलते।',
+                'Conclua {count} partida(s) contra os bots oficiais 1 a 5 para definir seu rating inicial.': 'शुरुआती रेटिंग तय करने के लिए आधिकारिक बॉट 1–5 के विरुद्ध {count} गेम पूरे करें।',
+                'Conclua duas partidas de calibração antes de acessar o modo Clássico ou Rankeado.': 'क्लासिक या रैंक्ड मोड से पहले दो अंशांकन गेम पूरे करें।',
+                'Conclua duas partidas de calibração antes do modo Clássico.': 'क्लासिक मोड से पहले दो अंशांकन गेम पूरे करें।',
+                'Partidas ao vivo': 'लाइव गेम', 'Atualizar partidas ao vivo': 'लाइव गेम रीफ़्रेश करें',
+                'Assistir Partida': 'गेम देखें', 'Modo observador · somente leitura': 'दर्शक मोड · केवल पढ़ने के लिए',
+                'Partida ao vivo': 'लाइव गेम', 'Espectador': 'दर्शक', 'Somente leitura': 'केवल पढ़ने के लिए',
+                'Você está acompanhando esta partida em modo somente leitura.': 'आप इस गेम को केवल-पठन मोड में देख रहे हैं।',
+                'Assistindo partida': 'गेम देख रहे हैं', 'Partida encerrada': 'गेम समाप्त',
+                'Nenhum amigo está em partida agora.': 'अभी कोई मित्र गेम नहीं खेल रहा है।',
+                'A partida já terminou. Atualize a lista para ver partidas ativas.': 'यह गेम समाप्त हो चुका है। सक्रिय गेम देखने के लिए सूची रीफ़्रेश करें।',
+                'Não foi possível atualizar partidas ao vivo.': 'लाइव गेम रीफ़्रेश नहीं हो सके।',
+                'Somente amigos aceitos podem assistir a esta partida.': 'केवल स्वीकृत मित्र यह गेम देख सकते हैं।',
+                'Apenas os participantes ou amigos autenticados podem assistir a esta partida.': 'केवल खिलाड़ी या प्रमाणित मित्र यह गेम देख सकते हैं।',
+                'Autenticação necessária para reivindicar timeout.': 'टाइमआउट घोषित करने के लिए साइन इन करें।',
+                'Primeira alteração grátis; depois, 100 moedas por alteração.': 'पहला नाम परिवर्तन मुफ़्त है; उसके बाद हर बदलाव 100 सिक्कों का है।',
+                'Alterações de nome custam 100 moedas.': 'नाम बदलने में 100 सिक्के लगते हैं।',
+                'Nome atualizado.': 'नाम अपडेट हुआ।', 'Nome atualizado gratuitamente.': 'नाम मुफ़्त में बदला गया।',
+                'cobradas.': 'काटे गए।', 'Prévia da capa de perfil': 'प्रोफ़ाइल कवर पूर्वावलोकन',
                 'Configurações': 'सेटिंग्स', 'Loja de Camarcoins': 'Camarcoins दुकान',
                 'Servidor online e sincronizado com a FIDE.': 'सर्वर ऑनलाइन है और FIDE से सिंक है।',
                 'Google: configuração necessária': 'Google सेटअप आवश्यक है',
@@ -1599,13 +1856,13 @@
                 else if (languageIndex !== undefined && pagePhrases[trimmed]) node.nodeValue = original.replace(trimmed, pagePhrases[trimmed][languageIndex]);
             }
             const placeholders = {
-                pt: ['Nome de usuário único', 'Senha forte (mínimo 7 caracteres)', 'Digite um nick', 'Mensagem', 'Conversar com o clube...', 'Digite o código promocional'],
-                en: ['Unique username', 'Strong password (at least 7 characters)', 'Enter a username', 'Message', 'Chat with the club...', 'Enter promo code'],
-                es: ['Nombre de usuario único', 'Contraseña segura (mínimo 7 caracteres)', 'Escribe un nick', 'Mensaje', 'Conversar con el club...', 'Introduce el código promocional'],
-                fr: ['Nom d’utilisateur unique', 'Mot de passe fort (7 caractères minimum)', 'Saisissez un pseudo', 'Message', 'Discuter avec le club...', 'Saisissez le code promotionnel'],
-                ru: ['Уникальное имя пользователя', 'Надёжный пароль (не менее 7 символов)', 'Введите имя игрока', 'Сообщение', 'Написать в клуб...', 'Введите промокод'],
-                de: ['Eindeutiger Benutzername', 'Sicheres Passwort (mindestens 7 Zeichen)', 'Nick eingeben', 'Nachricht', 'Mit dem Verein chatten...', 'Promo-Code eingeben'],
-                hi: ['अद्वितीय उपयोगकर्ता नाम', 'मज़बूत पासवर्ड (कम से कम 7 अक्षर)', 'उपयोगकर्ता नाम लिखें', 'संदेश', 'क्लब से चैट करें...', 'प्रोमो कोड लिखें']
+                pt: ['Nome de usuário único', 'Senha forte (mínimo 7 caracteres)', '#01 ou nick exato', 'Mensagem', 'Conversar com o clube...', 'Digite o código promocional'],
+                en: ['Unique username', 'Strong password (at least 7 characters)', '#01 or exact username', 'Message', 'Chat with the club...', 'Enter promo code'],
+                es: ['Nombre de usuario único', 'Contraseña segura (mínimo 7 caracteres)', '#01 o nick exacto', 'Mensaje', 'Conversar con el club...', 'Introduce el código promocional'],
+                fr: ['Nom d’utilisateur unique', 'Mot de passe fort (7 caractères minimum)', '#01 ou pseudo exact', 'Message', 'Discuter avec le club...', 'Saisissez le code promotionnel'],
+                ru: ['Уникальное имя пользователя', 'Надёжный пароль (не менее 7 символов)', '#01 или точное имя', 'Сообщение', 'Написать в клуб...', 'Введите промокод'],
+                de: ['Eindeutiger Benutzername', 'Sicheres Passwort (mindestens 7 Zeichen)', '#01 oder exakter Nick', 'Nachricht', 'Mit dem Verein chatten...', 'Promo-Code eingeben'],
+                hi: ['अद्वितीय उपयोगकर्ता नाम', 'मज़बूत पासवर्ड (कम से कम 7 अक्षर)', '#01 या सटीक नाम', 'संदेश', 'क्लब से चैट करें...', 'प्रोमो कोड लिखें']
             };
             const localizedPlaceholders = placeholders[currentLanguage];
             ['reg-username', 'reg-password', 'friend-search', 'chat-input', 'club-chat-input', 'promo-code-input'].forEach((id, index) => {
@@ -1719,8 +1976,11 @@
         }
 
         function completeLogin(data) {
+            const firstLoginInPage = !userData.username;
+            userData.user_id = Number(data.user_id) || 0;
             userData.username = data.username;
             userData.display_name = data.display_name || data.username;
+            userData.display_name_changes = data.display_name_changes || 0;
             userData.bio = data.bio || '';
             userData.coins = data.coins;
             userData.rating = data.rating;
@@ -1733,7 +1993,9 @@
             document.body.classList.toggle('colorblind-mode', userData.colorblind_mode);
             inventory = JSON.parse(data.inventory || '[]');
             achievements = data.achievements || [];
-            calibrationAllowed = data.calibration_allowed !== false;
+            userData.calibrated = Boolean(data.calibrated);
+            userData.calibration_games = Number(data.calibration_games) || 0;
+            calibrationAllowed = !userData.calibrated;
             profileAvatar = data.avatar || '';
             document.getElementById('google-link-status').innerText = data.google_linked
                 ? `Google vinculado: ${data.google_email}`
@@ -1744,6 +2006,9 @@
             setLanguage(currentLanguage);
             updateLobbyUI();
             document.getElementById('profile-name-input').value = userData.display_name;
+            document.getElementById('profile-name-cost-note').innerText = userData.display_name_changes === 0
+                ? localizeStaticPhrase('Primeira alteração grátis; depois, 100 moedas por alteração.')
+                : localizeStaticPhrase('Alterações de nome custam 100 moedas.');
             document.getElementById('profile-bio-input').value = userData.bio;
             updateBioCount(userData.bio);
             updateAvatarUI();
@@ -1752,8 +2017,15 @@
             if (notificationPollInterval) clearInterval(notificationPollInterval);
             refreshNotifications();
             notificationPollInterval = setInterval(refreshNotifications, 30000);
-            checkUrlChallengeJoin();
-            if (!localStorage.getItem(`capybara-tutorial-${userData.username}`)) showTutorial(false);
+            startSocialRealtime();
+            if (firstLoginInPage) {
+                tutorialGateActive = localStorage.getItem(tutorialCompletionKey()) !== 'complete';
+                if (tutorialGateActive) showTutorial(false);
+                else checkUrlChallengeJoin();
+            } else {
+                tutorialGateActive = tutorialGateActive && localStorage.getItem(tutorialCompletionKey()) !== 'complete';
+                if (!tutorialGateActive) checkUrlChallengeJoin();
+            }
         }
 
         function pieceSkinClass(skinId) {
@@ -1829,9 +2101,16 @@
             .then(data => {
                 if (!data.success) throw new Error(data.error || 'Não foi possível salvar o nome.');
                 userData.display_name = data.display_name;
+                userData.display_name_changes = data.display_name_changes || 0;
+                userData.coins = data.coins ?? userData.coins;
+                document.getElementById('profile-name-cost-note').innerText = userData.display_name_changes <= 1
+                    ? localizeStaticPhrase('Primeira alteração grátis; depois, 100 moedas por alteração.')
+                    : localizeStaticPhrase('Alterações de nome custam 100 moedas.');
                 updateLobbyUI();
                 updateAvatarUI();
-                status.innerText = 'Nome atualizado.';
+                status.innerText = data.charged
+                    ? `${localizeStaticPhrase('Nome atualizado.')} ${data.charged} ${localizeStaticPhrase('moedas')} ${localizeStaticPhrase('cobradas.')}`
+                    : localizeStaticPhrase('Nome atualizado gratuitamente.');
             })
             .catch(error => { status.innerText = error.message || 'Não foi possível salvar o nome.'; });
         }
@@ -1918,12 +2197,27 @@
         }
 
         function updateCalibrationUI() {
+            const completedGames = Number(userData.calibration_games) || 0;
+            document.getElementById('calibration-gate').classList.toggle('hidden', !calibrationAllowed);
+            document.getElementById('calibration-gate-progress').innerText = calibrationAllowed
+                ? `${completedGames}/2 ${localizeStaticPhrase('partidas concluídas. O modo Clássico e as partidas ranqueadas serão liberados ao terminar.')}`
+                : localizeStaticPhrase('Calibração concluída. Seu rating inicial foi definido; os bots de treino não alteram o rating global.');
             document.getElementById('calibration-note').innerText = calibrationAllowed
-                ? 'Enfrente os bots 1 a 5 uma única vez para definir seu rating inicial.'
-                : 'Calibração concluída. Partidas contra bots são de treino e não alteram rating.';
+                ? localizeStaticPhrase('Conclua {count} partida(s) contra os bots oficiais 1 a 5 para definir seu rating inicial.').replace('{count}', String(2 - completedGames))
+                : localizeStaticPhrase('Calibração concluída. Partidas contra bots são de treino e não alteram rating.');
+            const botSelect = document.getElementById('select-bot');
+            Array.from(botSelect.options).forEach((option, index) => { option.hidden = calibrationAllowed && index >= 5; });
+            document.getElementById('engine-strength').disabled = calibrationAllowed;
+        }
+
+        function startCalibrationFlow() {
+            if (!calibrationAllowed) return;
+            setPlayType('bot');
+            showLobbyArea('bots');
         }
 
         function showLobbyArea(area) {
+            if (guardTutorialNavigation()) return;
             document.getElementById('bots-area').classList.toggle('hidden', area !== 'bots');
             document.getElementById('play-area').classList.toggle('hidden', area !== 'play');
             document.getElementById('ranks-area').classList.toggle('hidden', area !== 'ranks');
@@ -1940,6 +2234,7 @@
         }
 
         function openConfig() {
+            if (guardTutorialNavigation()) return;
             if (musicEnabled && !matchActive) startBackgroundMusic();
             document.getElementById('lobby-screen').classList.add('hidden');
             document.getElementById('config-screen').classList.remove('hidden');
@@ -1952,6 +2247,7 @@
         }
 
         function openShop() {
+            if (guardTutorialNavigation()) return;
             document.getElementById('lobby-screen').classList.add('hidden');
             document.getElementById('config-screen').classList.remove('hidden');
             document.getElementById('config-heading').innerText = localizeStaticPhrase('Loja de Camarcoins');
@@ -1961,6 +2257,14 @@
         }
 
         function backToLobby() {
+            if (spectatorMode) {
+                exitSpectatorGame();
+                return;
+            }
+            if (tutorialGateActive && tutorialDestinationOpen && !tutorialNavigationAllowed) {
+                returnToTutorial();
+                return;
+            }
             document.getElementById('config-screen').classList.add('hidden');
             document.getElementById('friends-screen').classList.add('hidden');
             document.getElementById('tutorial-screen').classList.add('hidden');
@@ -1971,12 +2275,21 @@
         }
 
         function openFriends() {
+            if (guardTutorialNavigation()) return;
             document.getElementById('lobby-screen').classList.add('hidden');
             document.getElementById('friends-screen').classList.remove('hidden');
             loadFriends();
+            clearInterval(friendsGamesPollInterval);
+            friendsGamesPollInterval = setInterval(loadFriendActiveGames, 5000);
         }
 
         function closeFriends() {
+            if (tutorialGateActive && tutorialDestinationOpen && !tutorialNavigationAllowed) {
+                returnToTutorial();
+                return;
+            }
+            clearInterval(friendsGamesPollInterval);
+            friendsGamesPollInterval = null;
             selectedFriend = null;
             document.getElementById('friends-screen').classList.add('hidden');
             document.getElementById('lobby-screen').classList.remove('hidden');
@@ -1996,8 +2309,37 @@
             document.getElementById('lobby-screen').classList.add('hidden');
             document.getElementById('config-screen').classList.add('hidden');
             document.getElementById('friends-screen').classList.add('hidden');
+            document.getElementById('tutorial-return-control').classList.add('hidden');
+            tutorialDestinationOpen = false;
             document.getElementById('tutorial-screen').classList.remove('hidden');
             renderTutorialStep();
+        }
+
+        function tutorialCompletionKey() {
+            return `capybara-tutorial-complete-${userData.username}`;
+        }
+
+        function tutorialVisitedDestinations() {
+            try {
+                return new Set(JSON.parse(localStorage.getItem(`capybara-tutorial-visited-${userData.username}`) || '[]'));
+            } catch {
+                return new Set();
+            }
+        }
+
+        function tutorialVisitedSteps() {
+            try {
+                return new Set(JSON.parse(localStorage.getItem(`capybara-tutorial-steps-${userData.username}`) || '[]'));
+            } catch {
+                return new Set();
+            }
+        }
+
+        function guardTutorialNavigation() {
+            if (!tutorialGateActive || tutorialNavigationAllowed) return false;
+            if (tutorialDestinationOpen) returnToTutorial();
+            else if (document.getElementById('tutorial-screen').classList.contains('hidden')) showTutorial(false);
+            return true;
         }
 
         function renderTutorialStep() {
@@ -2008,7 +2350,11 @@
             document.getElementById('tutorial-title').innerText = title;
             document.getElementById('tutorial-text').innerText = text;
             document.getElementById('tutorial-back').classList.toggle('hidden', tutorialIndex === 0);
-            document.getElementById('tutorial-next').innerText = tutorialIndex === steps.length - 1 ? labels.finish : labels.next;
+            const nextButton = document.getElementById('tutorial-next');
+            nextButton.innerText = tutorialIndex === steps.length - 1 ? labels.finish : labels.next;
+            nextButton.disabled = tutorialGateActive && !tutorialVisitedSteps().has(tutorialIndex);
+            nextButton.classList.toggle('opacity-50', nextButton.disabled);
+            nextButton.title = nextButton.disabled ? 'Visite a seção indicada para avançar.' : '';
             const destinationLabels = {
                 bots: languageText[currentLanguage].bots,
                 play: languageText[currentLanguage].play,
@@ -2023,6 +2369,7 @@
         }
 
         function nextTutorialStep() {
+            if (tutorialGateActive && !tutorialVisitedSteps().has(tutorialIndex)) return;
             if (tutorialIndex === languageText[currentLanguage].tutorial.length - 1) return finishTutorial();
             tutorialIndex++;
             localStorage.setItem(`capybara-tutorial-progress-${userData.username}`, String(tutorialIndex));
@@ -2037,29 +2384,182 @@
         }
 
         function skipTutorial() {
-            finishTutorial();
+            finishTutorial(true);
         }
 
-        function finishTutorial() {
+        function finishTutorial(skipped = false) {
+            const visited = tutorialVisitedDestinations();
+            const allVisited = [...new Set(tutorialDestinations)].every(destination => visited.has(destination));
+            if (tutorialGateActive && !skipped && !allVisited) return;
+            tutorialGateActive = false;
+            tutorialDestinationOpen = false;
+            localStorage.setItem(tutorialCompletionKey(), 'complete');
             localStorage.setItem(`capybara-tutorial-${userData.username}`, 'seen');
             localStorage.removeItem(`capybara-tutorial-progress-${userData.username}`);
             document.getElementById('tutorial-screen').classList.add('hidden');
+            document.getElementById('tutorial-return-control').classList.add('hidden');
+            document.getElementById('config-screen').classList.add('hidden');
+            document.getElementById('friends-screen').classList.add('hidden');
             document.getElementById('lobby-screen').classList.remove('hidden');
         }
 
         function openTutorialDestination() {
             const destination = tutorialDestinations[tutorialIndex];
             localStorage.setItem(`capybara-tutorial-progress-${userData.username}`, String(tutorialIndex));
+            if (tutorialGateActive) {
+                const visited = tutorialVisitedDestinations();
+                visited.add(destination);
+                localStorage.setItem(`capybara-tutorial-visited-${userData.username}`, JSON.stringify([...visited]));
+                const visitedSteps = tutorialVisitedSteps();
+                visitedSteps.add(tutorialIndex);
+                localStorage.setItem(`capybara-tutorial-steps-${userData.username}`, JSON.stringify([...visitedSteps]));
+            }
+            tutorialDestinationOpen = true;
+            tutorialNavigationAllowed = true;
             document.getElementById('tutorial-screen').classList.add('hidden');
             document.getElementById('lobby-screen').classList.remove('hidden');
             if (['bots', 'play', 'ranks', 'missions', 'clubs'].includes(destination)) showLobbyArea(destination);
             if (destination === 'shop') openShop();
             if (destination === 'friends') openFriends();
             if (destination === 'settings') openConfig();
+            tutorialNavigationAllowed = false;
+            if (tutorialGateActive) {
+                const visited = tutorialVisitedDestinations();
+                const allVisited = [...new Set(tutorialDestinations)].every(item => visited.has(item));
+                if (allVisited) {
+                    tutorialGateActive = false;
+                    tutorialDestinationOpen = false;
+                    localStorage.setItem(tutorialCompletionKey(), 'complete');
+                    localStorage.setItem(`capybara-tutorial-${userData.username}`, 'seen');
+                } else {
+                    document.getElementById('tutorial-return-control').classList.remove('hidden');
+                }
+            }
+        }
+
+        function returnToTutorial() {
+            if (!tutorialGateActive) return;
+            tutorialDestinationOpen = false;
+            document.getElementById('tutorial-return-control').classList.add('hidden');
+            document.getElementById('lobby-screen').classList.add('hidden');
+            document.getElementById('config-screen').classList.add('hidden');
+            document.getElementById('friends-screen').classList.add('hidden');
+            document.getElementById('tutorial-screen').classList.remove('hidden');
+            renderTutorialStep();
         }
 
         function escapeHtml(value) {
             return String(value).replace(/[&<>'"]/g, character => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[character]);
+        }
+
+        function formatUserId(userId) {
+            return `#${String(userId || 0).padStart(2, '0')}`;
+        }
+
+        function setDirectChallengeFeedback(message, isError = false) {
+            const colorClass = isError ? 'text-red-300' : 'text-slate-300';
+            ['friend-action-feedback', 'player-profile-challenge-feedback'].forEach(id => {
+                const element = document.getElementById(id);
+                if (!element) return;
+                element.className = `text-xs ${colorClass}`;
+                element.textContent = message;
+            });
+        }
+
+        function startSocialRealtime() {
+            clearInterval(presenceHeartbeatInterval);
+            clearInterval(directChallengePollInterval);
+            pingPresence();
+            pollDirectChallenges();
+            presenceHeartbeatInterval = setInterval(pingPresence, 20000);
+            directChallengePollInterval = setInterval(pollDirectChallenges, 4000);
+        }
+
+        function pingPresence() {
+            if (!userData.username) return;
+            fetch('/presence/ping', { method: 'POST' }).catch(() => {});
+        }
+
+        function pollDirectChallenges() {
+            if (!userData.username || directChallengePolling) return;
+            directChallengePolling = true;
+            fetch('/challenges/direct')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.error) return;
+                    const incoming = data.incoming || [];
+                    const incomingModalOpen = !document.getElementById('direct-challenge-incoming-modal').classList.contains('hidden');
+                    if (incoming.length && !incomingModalOpen) {
+                        const challenge = incoming[0];
+                        activeIncomingDirectChallengeId = challenge.id;
+                        document.getElementById('direct-challenge-incoming-text').innerText = `${challenge.display_name} (${challenge.formatted_id}) desafiou você para uma partida.`;
+                        document.getElementById('direct-challenge-incoming-modal').classList.remove('hidden');
+                    }
+                    (data.outgoing || []).forEach(challenge => {
+                        if (challenge.status === 'accepted' && challenge.game_id && !launchedDirectChallengeGames.has(challenge.game_id)) {
+                            launchedDirectChallengeGames.add(challenge.game_id);
+                            launchDirectChallengeGame(challenge.game_id);
+                        } else if (challenge.status === 'declined' && !notifiedDeclinedDirectChallenges.has(challenge.id)) {
+                            notifiedDeclinedDirectChallenges.add(challenge.id);
+                            setDirectChallengeFeedback(localizeStaticPhrase('O jogador recusou o convite.'), true);
+                        }
+                    });
+                })
+                .catch(() => {})
+                .finally(() => { directChallengePolling = false; });
+        }
+
+        function sendDirectChallenge(encodedName) {
+            const recipient = decodeURIComponent(encodedName || '');
+            if (!recipient || recipient === userData.username) return;
+            setDirectChallengeFeedback(localizeStaticPhrase('Enviando convite...'));
+            fetch('/challenges/direct', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ recipient, time_control: preMatchTimeControl || '180,2' })
+            })
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Não foi possível enviar o convite.');
+                return data;
+            })
+            .then(data => setDirectChallengeFeedback(data.message || 'Convite enviado. Aguardando resposta.'))
+            .catch(error => setDirectChallengeFeedback(error.message, true));
+        }
+
+        function respondToDirectChallenge(accept) {
+            if (!activeIncomingDirectChallengeId) return;
+            fetch('/challenges/direct/respond', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ challenge_id: activeIncomingDirectChallengeId, accept })
+            })
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Não foi possível responder ao convite.');
+                return data;
+            })
+            .then(data => {
+                activeIncomingDirectChallengeId = null;
+                document.getElementById('direct-challenge-incoming-modal').classList.add('hidden');
+                if (data.status === 'accepted' && data.game_id) {
+                    launchedDirectChallengeGames.add(data.game_id);
+                    launchDirectChallengeGame(data.game_id);
+                }
+            })
+            .catch(error => alert(error.message));
+        }
+
+        function launchDirectChallengeGame(gameId) {
+            if (matchActive) return;
+            fetch(`/game/${encodeURIComponent(gameId)}/state?username=${encodeURIComponent(userData.username)}`)
+                .then(async response => {
+                    const state = await response.json();
+                    if (!response.ok || state.status !== 'active') throw new Error(state.error || 'A partida não está disponível.');
+                    return state;
+                })
+                .then(setupActiveGame)
+                .catch(error => setDirectChallengeFeedback(error.message, true));
         }
 
         function searchUsers() {
@@ -2070,7 +2570,7 @@
                 .then(data => {
                     const results = document.getElementById('user-search-results');
                     results.innerHTML = data.users.length ? data.users.map(user =>
-                        `<div class="bg-slate-900 border border-slate-700 rounded-lg p-2 flex justify-between gap-2"><span class="text-xs truncate">${escapeHtml(user.username)} <small class="text-slate-400">${user.rating}</small></span><button onclick="sendFriendRequest('${encodeURIComponent(user.username)}')" class="text-xs text-amber-300 hover:text-amber-100">Adicionar</button></div>`
+                        `<div class="bg-slate-900 border border-slate-700 rounded-lg p-2 flex flex-wrap items-center justify-between gap-2"><button onclick="openPlayerProfile('${encodeURIComponent(user.username)}')" class="min-w-0 flex-1 truncate text-left text-xs"><span class="text-sky-300">${escapeHtml(user.formatted_id)}</span> ${escapeHtml(user.display_name)} <small class="text-slate-400">${user.rating} Elo</small></button><span class="text-[10px] ${user.online ? 'text-emerald-300' : 'text-slate-500'}">${user.online ? 'Online' : 'Offline'}</span><button onclick="sendFriendRequest('${encodeURIComponent(user.username)}')" class="text-xs text-amber-300 hover:text-amber-100">Adicionar</button>${user.online ? `<button onclick="sendDirectChallenge('${encodeURIComponent(user.username)}')" class="text-xs text-sky-300 hover:text-sky-100">Desafiar</button>` : ''}</div>`
                     ).join('') : '<span class="text-xs text-slate-400">Nenhum usuário encontrado.</span>';
                 });
         }
@@ -2129,6 +2629,68 @@
                         `<div class="bg-slate-900 border border-slate-700 rounded-lg p-2 text-xs"><span>${escapeHtml(sender)}</span><div class="flex gap-2 mt-2"><button onclick="respondToRequest('${encodeURIComponent(sender)}', true)" class="text-emerald-300">Aceitar</button><button onclick="respondToRequest('${encodeURIComponent(sender)}', false)" class="text-red-400">Recusar</button></div></div>`
                     ).join('') : '<span class="text-xs text-slate-400">Sem pedidos pendentes.</span>';
                     refreshNotifications();
+                    loadFriendActiveGames();
+                });
+        }
+
+        function loadFriendActiveGames() {
+            const container = document.getElementById('friend-active-games');
+            if (!container || !userData.username) return;
+            fetch('/friends/active_games')
+                .then(async response => {
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || 'Não foi possível carregar partidas ao vivo.');
+                    return data;
+                })
+                .then(data => {
+                    const games = data.games || [];
+                    container.replaceChildren();
+                    if (!games.length) {
+                        const emptyState = document.createElement('span');
+                        emptyState.className = 'text-slate-500';
+                        emptyState.textContent = localizeStaticPhrase('Nenhum amigo está em partida agora.');
+                        container.appendChild(emptyState);
+                        return;
+                    }
+                    games.forEach(activeGame => {
+                        const row = document.createElement('div');
+                        row.className = 'flex items-center justify-between gap-2 border-b border-slate-800 py-2';
+                        const players = document.createElement('span');
+                        players.className = 'min-w-0 flex-1 truncate text-slate-300';
+                        players.textContent = `${activeGame.white_user} × ${activeGame.black_user}`;
+                        const watchButton = document.createElement('button');
+                        watchButton.type = 'button';
+                        watchButton.className = 'shrink-0 rounded bg-sky-700 px-3 py-2 text-[11px] font-bold text-white hover:bg-sky-600';
+                        watchButton.textContent = localizeStaticPhrase('Assistir Partida');
+                        watchButton.addEventListener('click', () => watchFriendGame(activeGame.game_id));
+                        row.append(players, watchButton);
+                        container.appendChild(row);
+                    });
+                })
+                .catch(error => {
+                    container.textContent = error.message || localizeStaticPhrase('Não foi possível atualizar partidas ao vivo.');
+                    container.className = 'flex max-h-48 flex-col gap-2 overflow-y-auto text-xs text-red-300';
+                });
+        }
+
+        function watchFriendGame(encodedGameId) {
+            const gameId = decodeURIComponent(encodedGameId);
+            fetch(`/game/${encodeURIComponent(gameId)}/state?username=${encodeURIComponent(userData.username)}`)
+                .then(async response => {
+                    const state = await response.json();
+                    if (!response.ok) throw new Error(state.error || 'Não foi possível assistir à partida.');
+                    if (state.status !== 'active') throw new Error(localizeStaticPhrase('A partida já terminou. Atualize a lista para ver partidas ativas.'));
+                    return state;
+                })
+                .then(state => {
+                    spectatorReturnToFriends = true;
+                    clearInterval(friendsGamesPollInterval);
+                    friendsGamesPollInterval = null;
+                    setupActiveGame(state);
+                })
+                .catch(error => {
+                    const feedback = document.getElementById('friend-action-feedback');
+                    feedback.textContent = error.message;
                 });
         }
 
@@ -2155,8 +2717,11 @@
                 .then(data => {
                     if (!data.success) throw new Error(data.error || 'Não foi possível carregar o perfil.');
                     document.getElementById('player-profile-name').innerText = data.display_name || data.username;
+                    document.getElementById('player-profile-id').innerText = data.formatted_id || formatUserId(data.user_id);
                     document.getElementById('player-profile-rating').innerText = `${data.rating} Elo`;
                     document.getElementById('player-profile-bio').innerText = data.bio || 'Este jogador ainda não adicionou uma bio.';
+                    const stats = data.stats || {};
+                    document.getElementById('player-profile-stats').innerText = `${stats.played || 0} partidas · ${stats.wins || 0} vitórias · ${stats.draws || 0} empates · ${stats.losses || 0} derrotas`;
                     const avatar = document.getElementById('player-profile-avatar');
                     const letter = document.getElementById('player-profile-avatar-letter');
                     if (data.avatar) {
@@ -2178,6 +2743,8 @@
                     };
                     document.getElementById('player-profile-friend-status').innerText = friendStatus[data.friend_status] || '';
                     document.getElementById('player-profile-add-friend').classList.toggle('hidden', data.friend_status !== 'none');
+                    document.getElementById('player-profile-challenge').classList.toggle('hidden', !data.online || data.friend_status === 'self');
+                    document.getElementById('player-profile-challenge-feedback').innerText = data.online ? 'Online agora' : 'Offline';
 
                     const resultLabels = { win: 'Vitória', loss: 'Derrota', draw: 'Empate' };
                     const resultClasses = { win: 'text-emerald-300', loss: 'text-red-300', draw: 'text-slate-300' };
@@ -2243,7 +2810,25 @@
         function logout() {
             clearInterval(timerInterval);
             clearInterval(notificationPollInterval);
+            clearInterval(presenceHeartbeatInterval);
+            clearInterval(directChallengePollInterval);
+            clearInterval(rankedQueuePollInterval);
+            clearInterval(friendsGamesPollInterval);
+            clearInterval(spectatorPollInterval);
             notificationPollInterval = null;
+            presenceHeartbeatInterval = null;
+            directChallengePollInterval = null;
+            rankedQueuePollInterval = null;
+            friendsGamesPollInterval = null;
+            spectatorPollInterval = null;
+            directChallengePolling = false;
+            activeIncomingDirectChallengeId = null;
+            spectatorMode = false;
+            spectatorReturnToFriends = false;
+            tutorialGateActive = false;
+            tutorialDestinationOpen = false;
+            fetch('/matchmaking/ranked/leave', { method: 'POST' }).catch(() => {});
+            document.getElementById('direct-challenge-incoming-modal').classList.add('hidden');
             matchActive = false;
             fetch('/logout', { method: 'POST' }).catch(() => {});
             userData = { username: '', display_name: '', bio: '', rating: 1200, coins: 100, seal: 'C', showSeal: false };
@@ -2260,14 +2845,19 @@
             selectedMode = mode;
             document.getElementById('mode-ranked').classList.toggle('active', mode === 'ranked');
             document.getElementById('mode-classic').classList.toggle('active', mode === 'classic');
-            document.getElementById('mode-description').innerText = mode === 'ranked' ? 'Ranqueada vale rating, moedas e selos.' : 'Clássica procura um bot aleatório entre 300 pontos acima e 300 abaixo do seu rating.';
+            document.getElementById('mode-description').innerText = localizeStaticPhrase(mode === 'ranked'
+                ? 'Ranqueada vale rating, moedas e selos.'
+                : 'Clássica procura um bot calibrado próximo do seu rating.');
             document.getElementById('classic-search').classList.toggle('hidden', mode !== 'classic');
             document.getElementById('ranked-panel').classList.toggle('hidden', mode !== 'ranked');
         }
 
         function getClassicMode() {
-            const value = document.getElementById('select-time').value;
-            return timeModes[value] || 'classic';
+            const [initialText, incrementText] = (preMatchTimeControl || '180,2').split(',');
+            const total = Number(initialText) + 40 * Number(incrementText || 0);
+            if (total < 180) return 'bullet';
+            if (total < 600) return 'blitz';
+            return 'rapid';
         }
 
         function selectRankMode(mode) {
@@ -2359,14 +2949,20 @@
                     return data;
                 })
                 .then(data => {
+                    const difficultyClasses = {
+                        'Fácil': 'text-emerald-300 border-emerald-800',
+                        'Média': 'text-sky-300 border-sky-800',
+                        'Difícil': 'text-rose-300 border-rose-800'
+                    };
                     list.innerHTML = data.missions.map(mission => {
                         const progress = Math.min(Number(mission.progress) || 0, Number(mission.target) || 1);
+                        const difficultyClass = difficultyClasses[mission.difficulty] || 'text-slate-300 border-slate-700';
                         const status = mission.claimed
                             ? '<span class="text-emerald-300">Resgatada</span>'
                             : mission.completed
-                                ? `<button onclick="claimMission(${mission.id})" class="bg-amber-600 hover:bg-amber-500 px-3 py-1 rounded text-xs font-bold">Resgatar ${mission.reward}</button>`
+                                ? `<button onclick="claimMission(${mission.id}, this)" class="bg-amber-600 hover:bg-amber-500 px-3 py-1 rounded text-xs font-bold">Resgatar ${mission.reward}</button>`
                                 : `<span class="text-slate-400">${progress}/${mission.target}</span>`;
-                        return `<div class="flex flex-wrap items-center gap-2 border border-slate-700 rounded p-3 text-xs"><span class="min-w-0 flex-1">${escapeHtml(mission.title)}</span><span class="text-amber-300">+${mission.reward} moedas</span>${status}</div>`;
+                        return `<div class="flex flex-wrap items-center gap-2 border border-slate-700 rounded p-3 text-xs"><span class="min-w-0 flex-1">${escapeHtml(mission.title)}</span><span class="rounded border px-2 py-1 ${difficultyClass}">${escapeHtml(mission.difficulty)}</span><span class="text-amber-300">+${mission.reward} moedas</span>${status}</div>`;
                     }).join('') || '<p class="text-xs text-slate-400">Nenhuma missão disponível.</p>';
                 })
                 .catch(error => {
@@ -2374,7 +2970,13 @@
                 });
         }
 
-        function claimMission(missionId) {
+        function claimMission(missionId, button) {
+            const feedback = document.getElementById('missions-feedback');
+            const buttonLabel = button ? button.textContent : '';
+            if (button) {
+                button.disabled = true;
+                button.textContent = 'Resgatando...';
+            }
             fetch('/missions/claim', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ username: userData.username, mission_id: missionId })
@@ -2387,34 +2989,50 @@
             .then(data => {
                 userData.coins = data.coins;
                 updateLobbyUI();
+                feedback.className = 'text-xs text-emerald-300';
+                feedback.textContent = `Recompensa de ${data.reward} moedas resgatada.`;
                 loadMissions();
             })
-            .catch(error => alert(error.message || 'Erro ao resgatar missão.'));
+            .catch(error => {
+                feedback.className = 'text-xs text-red-300';
+                feedback.textContent = error.message || 'Erro ao resgatar missão.';
+                if (button) {
+                    button.disabled = false;
+                    button.textContent = buttonLabel;
+                }
+            });
         }
 
         function findClassicMatch() {
             if (calibrationAllowed) {
-                alert('Conclua a calibração contra um dos cinco primeiros bots antes de jogar.');
-                showLobbyArea('bots');
+                alert(localizeStaticPhrase('Conclua duas partidas de calibração antes do modo Clássico.'));
+                startCalibrationFlow();
                 return;
             }
             const classicMode = getClassicMode();
             fetch('/classic/matchmake', {
                 method: 'POST', headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({ username: userData.username, language: currentLanguage, mode: classicMode })
+                body: JSON.stringify({
+                    username: userData.username,
+                    language: currentLanguage,
+                    mode: classicMode,
+                    min_offset: Number(document.getElementById('matchmake-min-offset').value),
+                    max_offset: Number(document.getElementById('matchmake-max-offset').value)
+                })
             })
             .then(response => response.json())
             .then(data => {
                 if (!data.success) return alert(data.error);
-                classicMatch = { ...data.bot, mode: classicMode };
+                classicMatch = { ...data.bot, mode: data.mode || classicMode };
                 rematchOpponent = classicMatch;
-                startBotMatch(null, classicMatch);
+                createBotGameSession(classicMatch);
             });
         }
 
         function setCustomStrength(value) {
             customEngineRating = Number(value);
             document.getElementById('engine-strength-label').innerText = value;
+            updateBotStrengthTier(customEngineRating);
         }
 
         function clearCustomStrength() {
@@ -2422,6 +3040,7 @@
             const select = document.getElementById('select-bot');
             document.getElementById('engine-strength').value = select.value;
             document.getElementById('engine-strength-label').innerText = select.value;
+            updateBotStrengthTier(Number(select.value));
             document.getElementById('bot-picker').innerText = `${select.options[select.selectedIndex].text} v`;
         }
 
@@ -2431,7 +3050,9 @@
             document.getElementById('time-menu').classList.add('hidden');
             if (list.classList.contains('hidden')) {
                 const select = document.getElementById('select-bot');
-                list.innerHTML = Array.from(select.options).map((option, index) =>
+                list.innerHTML = Array.from(select.options).map((option, index) => ({ option, index }))
+                    .filter(({ index }) => !calibrationAllowed || index < 5)
+                    .map(({ option, index }) =>
                     `<button onclick="selectBot(${index})" class="text-left text-xs p-2 rounded bg-slate-900 hover:bg-slate-700">${option.text}</button>`
                 ).join('');
             }
@@ -2465,10 +3086,17 @@
                 const owned = inventory.includes(id);
                 const isEquipped = (userData.active_frame === id || userData.active_banner === id || userData.active_piece_skin === id);
                 const isSelected = (selectedShopItem === id);
+                const isFrame = id.startsWith('frame_');
+                const isSkin = id.startsWith('skin_');
+                const thumbnailShape = isFrame
+                    ? `h-16 w-16 overflow-hidden rounded-full border-2 border-slate-500 frame-${id}`
+                    : 'h-16 w-16 object-contain';
                 return `
                     <div onclick="previewShopItem('${id}')" class="border ${isSelected ? 'border-amber-400 bg-amber-950/40 ring-1 ring-amber-400' : 'border-slate-700 bg-slate-900/80'} hover:border-amber-400 p-2.5 rounded-xl cursor-pointer transition flex flex-col justify-between">
                         <div>
-                            ${id.startsWith('skin_') ? `<div class="mb-2 flex h-20 items-center justify-center rounded bg-amber-100"><img src="${pieceAssetBase}wQ.svg" alt="${escapeHtml(localizeStaticPhrase('Skin de Peças'))}: ${escapeHtml(localizeStaticPhrase(name))}" class="piece-art ${pieceSkinClass(id)} h-16 w-16 object-contain" loading="lazy"></div>` : ''}
+                            <div class="mb-2 flex h-20 items-center justify-center rounded ${isFrame ? 'bg-slate-800' : 'bg-amber-100'}">
+                                <img src="${shopItemImageUrl(id)}" alt="${escapeHtml(localizeStaticPhrase(name))}" class="${thumbnailShape} ${isSkin ? `piece-art ${pieceSkinClass(id)}` : ''} ${isFrame ? 'h-full w-full object-cover' : ''}" loading="lazy">
+                            </div>
                             <div class="flex items-center justify-between gap-1 mb-1">
                                 <strong class="text-xs text-slate-100 truncate">${escapeHtml(name)}</strong>
                                 ${isEquipped ? '<span class="text-[9px] px-1.5 py-0.5 rounded bg-emerald-900 text-emerald-300 font-bold">Equipado</span>' : ''}
@@ -2496,6 +3124,7 @@
             if (!itemData) return;
             const [id, name, price] = itemData;
             const isFrame = id.startsWith('frame_');
+            const isBanner = id.startsWith('banner_');
             const isSkin = id.startsWith('skin_');
             const owned = inventory.includes(id);
             const isEquipped = (userData.active_frame === id || userData.active_banner === id || userData.active_piece_skin === id);
@@ -2514,6 +3143,16 @@
                 if (cls.startsWith('piece-skin-')) piecePreview.classList.remove(cls);
             });
             if (isSkin) piecePreview.classList.add(pieceSkinClass(id));
+
+            const bannerPreview = document.getElementById('shop-banner-preview');
+            const bannerPreviewImage = document.getElementById('shop-banner-preview-img');
+            bannerPreview.classList.toggle('hidden', !isBanner);
+            bannerPreview.classList.toggle('flex', isBanner);
+            bannerPreview.setAttribute('aria-label', localizeStaticPhrase('Prévia da capa de perfil'));
+            if (isBanner) {
+                bannerPreviewImage.src = shopItemImageUrl(id);
+                bannerPreviewImage.alt = localizeStaticPhrase(name);
+            }
 
             const previewWrap = document.getElementById('shop-avatar-frame-preview');
             Array.from(previewWrap.classList).forEach(cls => {
@@ -2692,16 +3331,16 @@
                             <div class="flex items-center justify-between p-2.5 rounded-xl border ${isMe ? 'border-amber-400/80 bg-amber-950/30' : 'border-slate-800 bg-slate-900/60'} hover:border-slate-700 transition">
                                 <div class="flex items-center gap-3 min-w-0">
                                     <span class="w-9 font-bold text-xs ${player.rank <= 3 ? 'text-amber-300' : 'text-slate-400'}">${medal}</span>
-                                    <div class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs overflow-hidden shrink-0 border-2 ${frameCls}">
-                                        ${player.avatar ? `<img src="${player.avatar}" class="profile-photo" alt="${escapeHtml(player.username)}">` : `<span>${player.username.charAt(0).toUpperCase()}</span>`}
-                                    </div>
+                                    <button onclick="openPlayerProfile('${encodeURIComponent(player.username)}')" aria-label="Abrir perfil de ${escapeHtml(player.display_name || player.username)}" class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center font-bold text-xs overflow-hidden shrink-0 border-2 ${frameCls} hover:border-amber-400">
+                                        ${player.avatar ? `<img src="${escapeHtml(player.avatar)}" class="profile-photo" alt="${escapeHtml(player.username)}">` : `<span>${escapeHtml(player.username.charAt(0).toUpperCase())}</span>`}
+                                    </button>
                                     <div class="flex flex-col min-w-0">
                                         <div class="flex items-center gap-1.5">
                                             <button onclick="openPlayerProfile('${encodeURIComponent(player.username)}')" class="max-w-40 truncate text-left text-xs font-bold ${isMe ? 'text-amber-300' : 'text-slate-200 hover:text-amber-300'}">${escapeHtml(player.display_name || player.username)}</button>
                                             ${isMe ? '<span class="text-[9px] px-1 rounded bg-amber-600/60 text-amber-200 font-bold">Você</span>' : ''}
                                             ${player.seal ? `<span class="text-[9px] px-1 rounded bg-red-600 font-bold">${player.seal}</span>` : ''}
                                         </div>
-                                        <span class="text-[10px] text-slate-400">${player.coins} moedas</span>
+                                        <span class="text-[10px] text-slate-400">${escapeHtml(player.formatted_id)} · ${player.coins} moedas · ${player.online ? 'Online' : 'Offline'}</span>
                                     </div>
                                 </div>
                                 <div class="text-right">
@@ -2718,17 +3357,38 @@
         }
 
         function setPlayType(type) {
+            if (calibrationAllowed && (type === 'classic' || type === 'ranked')) {
+                alert(localizeStaticPhrase('Conclua duas partidas de calibração antes de acessar o modo Clássico ou Rankeado.'));
+                startCalibrationFlow();
+                return;
+            }
             preMatchPlayType = type;
             document.getElementById('play-type-bot').classList.toggle('active', type === 'bot');
+            document.getElementById('play-type-classic').classList.toggle('active', type === 'classic');
+            document.getElementById('play-type-ranked').classList.toggle('active', type === 'ranked');
             document.getElementById('play-type-pvp').classList.toggle('active', type === 'pvp');
-            document.getElementById('play-bot-config').classList.toggle('hidden', type !== 'bot');
-            document.getElementById('play-pvp-config').classList.toggle('hidden', type !== 'pvp');
+            document.getElementById('play-bot-config').classList.toggle('hidden', !['bot', 'classic'].includes(type));
+            document.getElementById('classic-matchmaking-filter').classList.toggle('hidden', type !== 'classic');
+            document.getElementById('official-bot-picker').classList.toggle('hidden', type === 'classic');
+            document.getElementById('play-pvp-config').classList.toggle('hidden', !['ranked', 'pvp'].includes(type));
+            document.getElementById('ranked-queue-tools').classList.toggle('hidden', type !== 'ranked');
+            document.getElementById('ranked-rating-note').classList.toggle('hidden', type !== 'ranked');
+            document.getElementById('play-pvp-description').innerText = type === 'ranked'
+                ? localizeStaticPhrase('A fila pareia jogadores online com ratings próximos. A partida atualiza o rating FIDE.')
+                : localizeStaticPhrase('Crie um link casual para convidar alguém diretamente; essa partida não altera o rating.');
+            document.getElementById('ranked-rating-note').innerText = localizeStaticPhrase('Rating atual: {rating} Elo. A faixa de pareamento aumenta gradualmente enquanto você aguarda.').replace('{rating}', String(userData.rating));
 
             const icon = document.getElementById('btn-start-game-icon');
             const text = document.getElementById('btn-start-game-text');
             if (type === 'bot') {
                 icon.innerText = '⚔️';
                 text.innerText = 'Iniciar Partida Contra Bot';
+            } else if (type === 'classic') {
+                icon.innerText = '♟';
+                text.innerText = localizeStaticPhrase('Buscar Bot pelo Rating');
+            } else if (type === 'ranked') {
+                icon.innerText = '🏁';
+                text.innerText = localizeStaticPhrase('Entrar na Fila Rankeada');
             } else {
                 icon.innerText = '🔗';
                 text.innerText = 'Gerar Link de Desafio Direto';
@@ -2753,6 +3413,21 @@
             preMatchBotNumber = parseInt(val);
             const botRatings = { 1: 500, 2: 1000, 3: 1500, 4: 2100, 5: 2150, 6: 2300, 7: 2400, 8: 2500, 9: 2700, 10: 2850, 11: 3000, 12: 1900 };
             preMatchBotRating = botRatings[preMatchBotNumber] || 500;
+            customEngineRating = null;
+            updateBotStrengthTier(preMatchBotRating);
+        }
+
+        function getBotStrengthLevel(rating) {
+            return botStrengthTierRatings.reduce((bestIndex, tierRating, index) =>
+                Math.abs(tierRating - rating) < Math.abs(botStrengthTierRatings[bestIndex] - rating) ? index : bestIndex, 0) + 1;
+        }
+
+        function updateBotStrengthTier(rating) {
+            const label = `Tier Stockfish ${getBotStrengthLevel(Number(rating) || 500)}/16`;
+            const calibrationLabel = document.getElementById('calibration-bot-tier');
+            const playLabel = document.getElementById('play-bot-tier');
+            if (calibrationLabel) calibrationLabel.innerText = label;
+            if (playLabel) playLabel.innerText = label;
         }
 
         function getActiveModeFromTime(tc) {
@@ -2767,12 +3442,16 @@
             unlockAudio();
             if (preMatchPlayType === 'bot') {
                 createBotGameSession();
+            } else if (preMatchPlayType === 'classic') {
+                findClassicMatch();
+            } else if (preMatchPlayType === 'ranked') {
+                joinRankedQueue();
             } else {
                 createPvpChallengeSession();
             }
         }
 
-        function createBotGameSession() {
+        function createBotGameSession(classicOpponent = null) {
             const botNames = { 1: "Capivarão", 2: "Pirata", 3: "Marinheiro", 4: "Governador", 5: "Imperador",
                                6: "Pedro", 7: "Dill", 8: "Erick", 9: "Anonimus", 10: "Camargo", 11: "Fish", 12: "Rafachess" };
             const botSeals = { 1: "C", 2: "P", 3: "M", 4: "G", 5: "I", 6: "NM", 7: "FM", 8: "IM", 9: "GM", 10: "SP", 11: "ST", 12: "RF" };
@@ -2786,17 +3465,20 @@
                     mode: 'bot',
                     color: preMatchColorChoice,
                     time_control: preMatchTimeControl,
-                    bot_number: preMatchBotNumber,
-                    bot_rating: preMatchBotRating,
-                    rated: true
+                    bot_number: classicOpponent ? classicOpponent.number : preMatchBotNumber,
+                    bot_rating: classicOpponent ? classicOpponent.rating : (customEngineRating ?? preMatchBotRating),
+                    classic_mode: classicOpponent ? classicOpponent.mode : '',
+                    language: currentLanguage,
+                    rated: false
                 })
             })
             .then(res => res.json())
             .then(data => {
                 if (!data.success) return alert(data.error || 'Erro ao criar partida.');
-                currentBot.name = botNames[preMatchBotNumber] || 'Bot';
-                currentBot.rating = preMatchBotRating;
-                currentBot.seal = botSeals[preMatchBotNumber] || 'C';
+                currentBot.name = classicOpponent ? classicOpponent.name : (botNames[preMatchBotNumber] || 'Bot');
+                currentBot.rating = data.bot_rating;
+                currentBot.seal = classicOpponent ? '' : (botSeals[preMatchBotNumber] || 'C');
+                currentBot.level = data.bot_strength_level;
                 setupActiveGame(data);
             })
             .catch(() => alert('Erro de conexão ao criar partida contra o bot.'));
@@ -2811,7 +3493,7 @@
                     mode: 'pvp',
                     color: preMatchColorChoice,
                     time_control: preMatchTimeControl,
-                    rated: true
+                    rated: false
                 })
             })
             .then(res => res.json())
@@ -2837,6 +3519,74 @@
                 }, 1000);
             })
             .catch(() => alert('Erro de conexão ao gerar link de desafio.'));
+        }
+
+        function joinRankedQueue() {
+            if (calibrationAllowed) {
+                startCalibrationFlow();
+                return;
+            }
+            const status = document.getElementById('ranked-queue-status');
+            status.innerText = localizeStaticPhrase('Procurando adversário...');
+            document.getElementById('ranked-queue-cancel').classList.remove('hidden');
+            fetch('/matchmaking/ranked/join', {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ time_control: preMatchTimeControl })
+            })
+            .then(async response => {
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.error || 'Não foi possível entrar na fila.');
+                return data;
+            })
+            .then(data => {
+                if (data.status === 'matched') return openRankedGame(data.game_id);
+                status.innerText = localizeStaticPhrase('Na fila com {rating} Elo. Procurando rating próximo...').replace('{rating}', String(data.rating));
+                clearInterval(rankedQueuePollInterval);
+                rankedQueuePollInterval = setInterval(pollRankedQueue, 2000);
+            })
+            .catch(error => {
+                status.innerText = error.message;
+                document.getElementById('ranked-queue-cancel').classList.add('hidden');
+            });
+        }
+
+        function pollRankedQueue() {
+            fetch('/matchmaking/ranked/status')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'matched') openRankedGame(data.game_id);
+                    else if (data.status !== 'queued') {
+                        clearInterval(rankedQueuePollInterval);
+                        rankedQueuePollInterval = null;
+                        document.getElementById('ranked-queue-status').innerText = localizeStaticPhrase('Busca encerrada.');
+                        document.getElementById('ranked-queue-cancel').classList.add('hidden');
+                    }
+                })
+                .catch(() => {});
+        }
+
+        function leaveRankedQueue() {
+            clearInterval(rankedQueuePollInterval);
+            rankedQueuePollInterval = null;
+            fetch('/matchmaking/ranked/leave', { method: 'POST' }).catch(() => {});
+            document.getElementById('ranked-queue-status').innerText = localizeStaticPhrase('Busca cancelada.');
+            document.getElementById('ranked-queue-cancel').classList.add('hidden');
+        }
+
+        function openRankedGame(gameId) {
+            clearInterval(rankedQueuePollInterval);
+            rankedQueuePollInterval = null;
+            fetch(`/game/${encodeURIComponent(gameId)}/state?username=${encodeURIComponent(userData.username)}`)
+                .then(async response => {
+                    const state = await response.json();
+                    if (!response.ok || state.status !== 'active') throw new Error(state.error || 'A partida não está disponível.');
+                    return state;
+                })
+                .then(setupActiveGame)
+                .catch(error => {
+                    document.getElementById('ranked-queue-status').innerText = error.message;
+                    document.getElementById('ranked-queue-cancel').classList.add('hidden');
+                });
         }
 
         function copyChallengeLink() {
@@ -2891,6 +3641,10 @@
 
         function setupActiveGame(state) {
             // Initialize one authoritative client board from the server's current match state.
+            clearInterval(spectatorPollInterval);
+            spectatorPollInterval = null;
+            spectatorMode = state.player_color === 'spectator';
+            spectatorGameState = spectatorMode ? state : null;
             currentGameId = state.game_id;
             matchActive = true;
             botThinking = false;
@@ -2900,7 +3654,7 @@
             // Interrompe música de fundo durante a partida conforme requisitos
             stopBackgroundMusic();
 
-            playerColorChoice = state.player_color || 'white';
+            playerColorChoice = spectatorMode ? 'white' : (state.player_color || 'white');
             playerTime = playerColorChoice === 'white' ? state.white_time : state.black_time;
             opponentTime = playerColorChoice === 'white' ? state.black_time : state.white_time;
             increment = state.time_increment || 0;
@@ -2912,40 +3666,45 @@
             document.getElementById('game-screen').classList.remove('hidden');
 
             const isWhite = (playerColorChoice === 'white');
-            const oppName = isWhite ? state.black_user : state.white_user;
+            const oppName = spectatorMode
+                ? `${state.white_user} × ${state.black_user}`
+                : (isWhite ? state.black_user : state.white_user);
             const oppRating = state.game_type === 'bot' ? (state.bot_rating || 500) : 1200;
 
             document.getElementById('match-opponent-name').innerText = oppName;
-            document.getElementById('match-opp-rating').innerText = `${oppRating} Elo`;
+            const strengthLevel = state.bot_strength_level || getBotStrengthLevel(oppRating);
+            document.getElementById('match-opp-rating').innerText = state.game_type === 'bot'
+                ? `${oppRating} Elo · Tier ${strengthLevel}/16`
+                : (spectatorMode ? localizeStaticPhrase('Partida ao vivo') : `${oppRating} Elo`);
 
             const oppImg = document.getElementById('match-opp-img');
             const oppLetter = document.getElementById('match-opp-letter');
-            if (state.game_type === 'bot') {
+            if (state.game_type === 'bot' && !spectatorMode) {
                 oppImg.src = getBotAvatar(state.bot_number, oppName, state.bot_seal);
                 oppImg.classList.remove('hidden');
                 oppLetter.classList.add('hidden');
             } else {
                 oppImg.classList.add('hidden');
                 oppLetter.classList.remove('hidden');
-                oppLetter.innerText = oppName.charAt(0).toUpperCase();
+                oppLetter.innerText = spectatorMode ? '♟' : oppName.charAt(0).toUpperCase();
             }
 
             const pImg = document.getElementById('match-player-img');
             const pLetter = document.getElementById('match-player-letter');
-            document.getElementById('match-player-name').innerText = userData.username || 'Você';
-            document.getElementById('match-player-rating').innerText = `${userData.rating} Elo`;
-            if (profileAvatar) {
+            document.getElementById('match-player-name').innerText = spectatorMode ? localizeStaticPhrase('Espectador') : (userData.username || localizeStaticPhrase('Você'));
+            document.getElementById('match-player-rating').innerText = spectatorMode ? localizeStaticPhrase('Somente leitura') : `${userData.rating} Elo`;
+            if (!spectatorMode && profileAvatar) {
                 pImg.src = profileAvatar;
                 pImg.classList.remove('hidden');
                 pLetter.classList.add('hidden');
             } else {
                 pImg.classList.add('hidden');
                 pLetter.classList.remove('hidden');
-                pLetter.innerText = (userData.username || 'V').charAt(0).toUpperCase();
+                pLetter.innerText = spectatorMode ? 'E' : (userData.username || 'V').charAt(0).toUpperCase();
             }
 
             const oppSealEl = document.getElementById('match-opp-seal');
-            if (state.game_type === 'bot' && state.bot_seal) {
+            if (!spectatorMode && state.game_type === 'bot' && state.bot_seal) {
                 oppSealEl.innerText = state.bot_seal;
                 oppSealEl.title = `Selo Oficial ${state.bot_seal}`;
                 oppSealEl.classList.remove('hidden');
@@ -2954,7 +3713,7 @@
             }
 
             const pSealEl = document.getElementById('match-player-seal');
-            if (userData.showSeal && userData.seal) {
+            if (!spectatorMode && userData.showSeal && userData.seal) {
                 pSealEl.innerText = userData.seal;
                 pSealEl.title = `Seu Selo Ativo: ${userData.seal}`;
                 pSealEl.classList.remove('hidden');
@@ -2966,13 +3725,17 @@
             document.getElementById('btn-takeback').classList.toggle('opacity-50', state.game_type !== 'bot');
 
             const modeNames = { bot: localizeStaticPhrase('Contra Bot'), pvp: localizeStaticPhrase('Online PvP') };
-            document.getElementById('game-mode-badge').innerText = `${modeNames[state.game_type] || 'Partida'} • ${formatTimeControlName(state.time_initial, state.time_increment)}`;
-            document.getElementById('game-panel-title').innerText = 'Partida em Andamento';
+            document.getElementById('game-mode-badge').innerText = `${spectatorMode ? `${localizeStaticPhrase('Modo observador · somente leitura')} · ` : ''}${modeNames[state.game_type] || localizeStaticPhrase('Partida')} • ${formatTimeControlName(state.time_initial, state.time_increment)}`;
+            document.getElementById('game-panel-title').innerText = spectatorMode ? localizeStaticPhrase('Assistindo partida') : localizeStaticPhrase('Partida em Andamento');
 
-            document.getElementById('in-game-controls').classList.remove('hidden');
+            document.getElementById('spectator-controls').classList.toggle('hidden', !spectatorMode);
+            document.getElementById('in-game-controls').classList.toggle('hidden', spectatorMode);
             document.getElementById('post-game-controls').classList.add('hidden');
             document.getElementById('match-result-banner').innerText = '';
             document.getElementById('illegal-warning').innerText = '';
+            document.getElementById('premove-status').innerText = spectatorMode
+                ? localizeStaticPhrase('Você está acompanhando esta partida em modo somente leitura.')
+                : 'Botão direito: desenha setas. Clique esquerdo vazio: limpa setas.';
 
             game = new Chess(state.fen);
             renderMoveHistoryTable(state.history || []);
@@ -2999,14 +3762,18 @@
                 cleanBoardTooltips();
             }, 60);
 
-            bindArrowDrawing();
+            if (!spectatorMode) bindArrowDrawing();
             bindClickToMove();
-            startClocks();
+            if (spectatorMode) {
+                startSpectatorPolling();
+            } else {
+                startClocks();
+            }
             applyActiveCosmetics();
             translateStaticPage();
 
             const myTurn = (game.turn() === (playerColorChoice === 'white' ? 'w' : 'b'));
-            if (state.game_type === 'pvp' && !myTurn) {
+            if (!spectatorMode && state.game_type === 'pvp' && !myTurn) {
                 startPvpPolling();
             }
         }
@@ -3045,7 +3812,7 @@
             boardElement._clickToMoveBound = true;
 
             boardElement.addEventListener('click', (event) => {
-                if (event.button !== 0 || !matchActive || game.game_over() || !isMyTurnNow()) return;
+                if (spectatorMode || event.button !== 0 || !matchActive || game.game_over() || !isMyTurnNow()) return;
 
                 const targetSquare = event.target.closest('[data-square]')?.dataset.square;
                 if (!targetSquare) return;
@@ -3124,7 +3891,7 @@
 
         function onDragStart(source, piece) {
             clearSelectedSquare();
-            if (!matchActive || game.game_over()) return false;
+            if (spectatorMode || !matchActive || game.game_over()) return false;
             const isMyTurn = (game.turn() === (playerColorChoice === 'white' ? 'w' : 'b'));
             if (!isMyTurn) return false;
             if ((playerColorChoice === 'white' && piece.search(/^b/) !== -1) ||
@@ -3134,6 +3901,7 @@
         }
 
         function onDrop(source, target, piece) {
+            if (spectatorMode) return 'snapback';
             if (source === target) return;
 
             const isWhitePawn = (piece === 'wP' && source[1] === '7' && target[1] === '8');
@@ -3163,6 +3931,7 @@
         }
 
         function sendGameMoveToServer(moveUci) {
+            if (spectatorMode) return;
             // Apply optimistically for responsive feedback, then reconcile with the server response.
             const promo = moveUci.length === 5 ? moveUci[4] : 'q';
             const from = moveUci.substring(0, 2);
@@ -3207,7 +3976,7 @@
                 }
 
                 if (data.game_over) {
-                    handleGameOverState(data.winner, data.termination_reason, data.earned_coins, data.rating_change, data.new_rating);
+                    handleGameOverState(data.winner, data.termination_reason, data.earned_coins, data.rating_change, data.new_rating, data.missions_completed || []);
                 } else if (!isMyTurnNow()) {
                     startPvpPolling();
                 }
@@ -3242,6 +4011,7 @@
         }
 
         function isMyTurnNow() {
+            if (spectatorMode) return game.turn() === 'w';
             return (game.turn() === (playerColorChoice === 'white' ? 'w' : 'b'));
         }
 
@@ -3269,7 +4039,7 @@
 
                         if (state.status !== 'active') {
                             clearInterval(pvpPollInterval);
-                            handleGameOverState(state.winner, state.termination_reason);
+                            handleGameOverState(state.winner, state.termination_reason, 0, state.rating_change || 0, state.new_rating, state.missions_completed || []);
                         } else if (isMyTurnNow()) {
                             clearInterval(pvpPollInterval);
                         }
@@ -3278,7 +4048,69 @@
             }, 800);
         }
 
-        function handleGameOverState(winner, reason, coinsWon = 0, eloChange = 0, newElo = null) {
+        function startSpectatorPolling() {
+            clearInterval(spectatorPollInterval);
+            spectatorPollInterval = setInterval(() => {
+                if (!spectatorMode || !currentGameId) {
+                    clearInterval(spectatorPollInterval);
+                    spectatorPollInterval = null;
+                    return;
+                }
+                fetch(`/game/${encodeURIComponent(currentGameId)}/state?username=${encodeURIComponent(userData.username)}`)
+                    .then(response => response.json())
+                    .then(state => {
+                        if (!state.fen) return;
+                        if (state.fen !== game.fen()) {
+                            game.load(state.fen);
+                            if (board) board.position(state.fen);
+                            cleanBoardTooltips();
+                            renderMoveHistoryTable(state.history || []);
+                        }
+                        playerTime = state.white_time;
+                        opponentTime = state.black_time;
+                        updateClocks();
+                        if (state.status !== 'active') {
+                            clearInterval(spectatorPollInterval);
+                            spectatorPollInterval = null;
+                            matchActive = false;
+                            document.getElementById('game-panel-title').innerText = localizeStaticPhrase('Partida encerrada');
+                            document.getElementById('game-live-indicator').className = 'w-2.5 h-2.5 rounded-full bg-slate-500';
+                            const result = state.winner === 'draw'
+                                ? localizeStaticPhrase('Empate')
+                                : `${localizeStaticPhrase('Vencedor')}: ${state.winner === 'white' ? state.white_user : state.black_user}`;
+                            const banner = document.getElementById('match-result-banner');
+                            banner.innerText = `${state.termination_reason || 'Partida concluída.'} ${result}`;
+                            banner.className = 'text-center font-bold text-sm min-h-6 py-1 px-2 rounded-lg text-sky-300 bg-slate-900/80 border border-sky-800';
+                        }
+                    })
+                    .catch(() => {});
+            }, 900);
+        }
+
+        function exitSpectatorGame() {
+            clearInterval(spectatorPollInterval);
+            spectatorPollInterval = null;
+            clearInterval(timerInterval);
+            clearInterval(pvpPollInterval);
+            spectatorMode = false;
+            spectatorGameState = null;
+            matchActive = false;
+            currentGameId = null;
+            board = null;
+            document.getElementById('game-screen').classList.add('hidden');
+            document.getElementById('spectator-controls').classList.add('hidden');
+            if (spectatorReturnToFriends) {
+                spectatorReturnToFriends = false;
+                document.getElementById('friends-screen').classList.remove('hidden');
+                loadFriendActiveGames();
+                friendsGamesPollInterval = setInterval(loadFriendActiveGames, 5000);
+            } else {
+                document.getElementById('lobby-screen').classList.remove('hidden');
+                updateLobbyUI();
+            }
+        }
+
+        function handleGameOverState(winner, reason, coinsWon = 0, eloChange = 0, newElo = null, missionsCompleted = []) {
             clearSelectedSquare();
             matchActive = false;
             clearInterval(timerInterval);
@@ -3298,6 +4130,7 @@
             let bannerMsg = reason || (playerWon ? 'Vitória!' : (isDraw ? 'Empate!' : 'Derrota.'));
             if (coinsWon > 0) bannerMsg += ` (+${coinsWon} 🪙)`;
             if (eloChange !== 0 && eloChange !== undefined) bannerMsg += ` [${eloChange > 0 ? '+' : ''}${eloChange} Elo]`;
+            if (missionsCompleted.length) bannerMsg += ` | ${missionsCompleted.length} missão(ões) concluída(s)!`;
             banner.innerText = bannerMsg;
 
             if (playerWon) {
@@ -3319,7 +4152,8 @@
 
             fetch('/auth/me', { cache: 'no-store' })
                 .then(r => r.json())
-                .then(d => { if (d.success) completeLogin(d); });
+                .then(d => { if (d.success) completeLogin(d); loadMissions(); })
+                .catch(() => loadMissions());
         }
 
         function triggerSwordAnimation() {
@@ -3332,6 +4166,7 @@
 
         function startClocks() {
             clearInterval(timerInterval);
+            if (spectatorMode) return;
             timerInterval = setInterval(() => {
                 if (!matchActive) {
                     clearInterval(timerInterval);
@@ -3372,11 +4207,15 @@
 
         function checkTimeoutServer() {
             if (!currentGameId) return;
-            fetch(`/game/${currentGameId}/claim_timeout`, { method: 'POST' })
+            fetch(`/game/${currentGameId}/claim_timeout`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ username: userData.username })
+            })
                 .then(r => r.json())
                 .then(data => {
                     if (data.status === 'timeout') {
-                        handleGameOverState(data.winner, data.reason);
+                        handleGameOverState(data.winner, data.reason, 0, data.rating_change || 0, data.new_rating, data.missions_completed || []);
                     }
                 });
         }
@@ -3415,7 +4254,7 @@
         }
 
         function takeBackMove() {
-            if (!currentGameId || !matchActive) return;
+            if (spectatorMode || !currentGameId || !matchActive) return;
             fetch(`/game/${currentGameId}/takeback`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -3434,7 +4273,7 @@
         }
 
         function offerDraw() {
-            if (!currentGameId || !matchActive) return;
+            if (spectatorMode || !currentGameId || !matchActive) return;
             fetch(`/game/${currentGameId}/draw_offer`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -3443,7 +4282,7 @@
             .then(res => res.json())
             .then(data => {
                 if (data.status === 'draw_agreed') {
-                    handleGameOverState('draw', data.reason);
+                    handleGameOverState('draw', data.reason, 0, data.rating_change || 0, data.new_rating, data.missions_completed || []);
                 } else if (data.accepted === false) {
                     showIllegalWarning(data.message || 'O Bot recusou a proposta de empate.');
                 } else {
@@ -3454,6 +4293,10 @@
         }
 
         function cancelOrResign() {
+            if (spectatorMode) {
+                exitSpectatorGame();
+                return;
+            }
             if (!currentGameId || !matchActive) {
                 backToLobby();
                 return;
@@ -3467,7 +4310,7 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    handleGameOverState(data.winner, data.reason);
+                    handleGameOverState(data.winner, data.reason, 0, data.rating_change || 0, data.new_rating, data.missions_completed || []);
                 }
             })
             .catch(() => alert('Erro de conexão ao desistir.'));
@@ -3478,7 +4321,15 @@
         }
 
         function startBotMatch() {
-            executeStartGameFlow();
+            const botSelect = document.getElementById('select-bot');
+            if (calibrationAllowed && botSelect.selectedIndex > 4) botSelect.selectedIndex = 0;
+            preMatchBotNumber = botSelect.selectedIndex + 1;
+            preMatchBotRating = Number(botSelect.value) || 500;
+            preMatchColorChoice = document.getElementById('select-color').value || 'white';
+            const selectedTime = document.getElementById('select-time').value;
+            if (selectedTime && selectedTime !== 'random') preMatchTimeControl = selectedTime;
+            preMatchPlayType = 'bot';
+            createBotGameSession();
         }
 
         // --- SISTEMA DE ÁUDIO & BGM (4 OPÇÕES SINTETIZADAS) ---
@@ -4191,6 +5042,14 @@
             document.getElementById('menu-friends-label').innerText = text.friends;
             document.getElementById('menu-guide-label').innerText = text.guide;
             document.getElementById('menu-settings').innerText = text.settings;
+            if (userData.username) updateCalibrationUI();
+            if (spectatorMode && spectatorGameState) {
+                document.getElementById('game-panel-title').innerText = localizeStaticPhrase('Assistindo partida');
+                document.getElementById('match-player-name').innerText = localizeStaticPhrase('Espectador');
+                document.getElementById('match-player-rating').innerText = localizeStaticPhrase('Somente leitura');
+                document.getElementById('premove-status').innerText = localizeStaticPhrase('Você está acompanhando esta partida em modo somente leitura.');
+                document.getElementById('game-mode-badge').innerText = `${localizeStaticPhrase('Modo observador · somente leitura')} · ${localizeStaticPhrase('Online PvP')} • ${formatTimeControlName(spectatorGameState.time_initial, spectatorGameState.time_increment)}`;
+            }
             const labels = tutorialLabels[currentLanguage];
             document.getElementById('tutorial-back').innerText = labels.back;
             document.getElementById('tutorial-skip').innerText = labels.skip;

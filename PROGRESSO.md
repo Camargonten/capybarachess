@@ -12,6 +12,12 @@
 
 ## Pendências, na ordem solicitada
 
+### Fase 1: loja e perfil
+
+- [x] Gerar URLs de peças e avatares com `url_for('static', ...)`, respeitando prefixos de montagem como `SCRIPT_NAME`.
+- [x] Cobrar zero moedas na primeira alteração de nome e 100 nas seguintes, com validação e débito atômico do saldo.
+- [x] Validar caminhos com prefixo Flask e fluxo de nome em SQLite temporário.
+
 ### Fase 1: interface e estado
 
 - [x] Preservar o passo atual do Guia da Capivara ao navegar para outra seção e reabri-lo.
@@ -28,7 +34,56 @@
 
 ### Pendência anterior fora desta sequência
 
-- [ ] Remover a restrição offline das missões e disponibilizá-las nos modos relevantes.
+- [x] Corrigir o carregamento de missões, substituir objetivos inalcançáveis por 30 missões offline variadas e automatizar progresso/resgate.
+
+### Fase 2: missões e economia
+
+- [x] Catalogar 30 missões em três dificuldades, com progresso a partir de partidas contra bots, incluindo vitórias por cor/ritmo, xeque-mate, roque, promoção, capturas e volume de partidas.
+- [x] Atualizar progresso no encerramento normal, por desistência, timeout e empate aceito pelo bot; retornar conclusões recentes para feedback imediato no cliente.
+- [x] Tornar resgates transacionais e de uso único, com saldo atualizado no perfil.
+- [x] Reduzir ganhos repetíveis contra bots para 3/5/8 moedas por vitória em Bullet/Blitz/Rápida e 1/1/2 por empate; recompensas de missão variam de 8 a 50 moedas.
+- [x] Validar catálogo/listagem/progresso/resgate idempotente, desistência, timeout e empate aceito em SQLite isolado; diagnósticos do editor sem erros.
+
+### Fase 4: calibração, tutorial e modos de partida
+
+- [x] Exigir calibração server-side antes de matchmaking clássico/rankeado ou entrada em partidas PvP ranqueadas; somente os dois primeiros resultados contra bots oficiais 1–5 alteram o rating FIDE, inclusive empate aceito.
+- [x] Exibir progresso da calibração no lobby e limitar a seleção inicial aos cinco bots elegíveis.
+- [x] Fazer o tutorial obrigatório acompanhar as visitas por etapa/seção, bloquear navegação lateral e oferecer retorno ao guia; “Pular tutorial” conclui e libera explicitamente.
+- [x] Criar fila PvP ranqueada persistida em SQLite, pareando pelo rating e ritmo com faixa de busca crescente, mais consulta de estado e cancelamento.
+- [x] Impedir que uma partida casual ou contra bot ativa seja confundida com um pareamento ranqueado.
+- [x] Ligar o modo Clássico ao catálogo de bots calibrados pelo rating atual; atualizar o rating clássico ao fim da partida sem alterar o rating FIDE.
+- [x] Desativar o endpoint antigo que aceitava resultado clássico enviado pelo cliente.
+- [x] Validar gates, pareamento, seleção de bot, rating clássico, conflito com partidas casuais e migrações em SQLite temporário; diagnósticos do editor sem erros.
+
+### Fase 5: força e reflexão dos bots
+
+- [x] Mapear ratings para 16 tiers Stockfish de 500 a 3000 Elo, com perfil de Skill Level para os seis tiers abaixo da faixa UCI e limitação Elo para os demais.
+- [x] Aumentar o tempo de busca por tier de 300 ms a 3000 ms; usar 1 ms somente quando o relógio autoritativo do bot indicar 10 segundos ou menos.
+- [x] Remover a escolha aleatória em falha do motor e retornar erro explícito; limitar ratings recebidos ao intervalo dos tiers.
+- [x] Exibir o tier na configuração e na partida, preservando a seleção customizada de força.
+- [x] Validar todos os perfis com motor simulado, tiers de fronteira com Stockfish 17 real e nível 16 normal/rápido com lances legais.
+
+### Publicação no Render: configurada para teste online
+
+- [x] Mantido plano `free` com SQLite em `DATABASE_PATH=/tmp/capybara.db`; banco, fila e estado social são efêmeros e podem se perder em reinicializações/deploys.
+- [x] Alterado o serviço para runtime Docker; o `Dockerfile` instala dependência Debian Stockfish e confirma o executável em `/usr/games/stockfish` durante o build.
+- [x] `render.yaml` configura `STOCKFISH_PATH`, `DATABASE_PATH`, healthcheck `/health` e Gunicorn com um worker/quatro threads, sem disco pago.
+
+### Auditoria de concorrência e espectador
+
+- [x] Duas partidas PvP de pares diferentes receberam lances simultâneos sem compartilhar FEN ou histórico.
+- [x] Dois lances concorrentes no mesmo turno gravaram apenas um movimento; o segundo pedido recebeu 403 após revalidar turno.
+- [x] Adicionada a lista de partidas ativas de amigos e observação em polling somente leitura; espectadores autenticados veem tabuleiro/notação ao vivo e não podem enviar lances, desistir ou reivindicar timeout.
+- [x] Validado HTTP 200 para amigo/participante, HTTP 403 para estranho/timeout de espectador e HTTP 401/403 para tentativas de falsificar identidade; timeout do observador é read-only. Teste visual confirmou atualização de `e4`/`d5` no tabuleiro e controles de jogo ocultos.
+
+### Operação, segurança e validação final
+
+- [x] Produção falha explicitamente sem `SECRET_KEY`, `DATABASE_PATH` absoluto em diretório existente/gravável ou Stockfish executável; caminhos não executáveis não recebem chmod implícito.
+- [x] Stockfish usa `SimpleEngine`, até quatro slots concorrentes, timeout no handshake/busca e encerramento/recolhimento do subprocesso. Validado com Stockfish real e handshake UCI inválido com timeout.
+- [x] Mutação de partida (entrada, lance, desistência, empate, takeback e timeout) obtém `BEGIN IMMEDIATE` antes de consultar o estado. Duas requisições de lance concorrentes resultaram em uma única gravação (200/403).
+- [x] Limpeza de filas sem heartbeat, partidas pareadas já encerradas e presenças com mais de sete dias validada em SQLite temporário.
+- [x] Validadores de FEN, UCI, username e inteiros rejeitam payloads com tipo, formato, whitespace/controlos ou limites inválidos.
+- [ ] Validar o build e o healthcheck no Render após o push; os dados permanecem efêmeros por decisão para este teste online.
 
 ## Polimento final
 

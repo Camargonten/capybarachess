@@ -22,6 +22,31 @@ def get_db():
     finally:
         conn.close()
 
+def cleanup_ephemeral_sessions(conn, current_username: str | None = None) -> None:
+    # Heartbeats make abandoned queue entries cheap to identify without a scheduler.
+    conn.execute("""
+        DELETE FROM ranked_queue
+        WHERE status = 'waiting' AND NOT EXISTS (
+            SELECT 1 FROM user_presence p
+            WHERE p.username = ranked_queue.username
+              AND p.last_seen_at >= datetime('now', '-45 seconds')
+        )
+    """)
+    conn.execute("""
+        DELETE FROM ranked_queue
+        WHERE status = 'matched' AND NOT EXISTS (
+            SELECT 1 FROM games g
+            WHERE g.id = ranked_queue.game_id AND g.status = 'active'
+        )
+    """)
+    if current_username:
+        conn.execute(
+            "DELETE FROM user_presence WHERE last_seen_at < datetime('now', '-7 days') AND username != ?",
+            (current_username,)
+        )
+    else:
+        conn.execute("DELETE FROM user_presence WHERE last_seen_at < datetime('now', '-7 days')")
+
 def init_db():
     with get_db() as conn:
         cursor = conn.cursor()
@@ -30,6 +55,7 @@ def init_db():
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 username TEXT UNIQUE NOT NULL,
                 display_name TEXT DEFAULT '',
+                display_name_changes INTEGER DEFAULT 0,
                 bio TEXT DEFAULT '',
                 password TEXT NOT NULL,
                 coins INTEGER DEFAULT 100,
@@ -56,6 +82,7 @@ def init_db():
         
         columns_to_add = {
             'display_name': "TEXT DEFAULT ''",
+            'display_name_changes': "INTEGER DEFAULT 0",
             'bio': "TEXT DEFAULT ''",
             'inventory': "TEXT DEFAULT '[]'",
             'last_login': "TEXT",
@@ -106,6 +133,38 @@ def init_db():
                 PRIMARY KEY (sender, recipient)
             )
         ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS user_presence (
+                username TEXT PRIMARY KEY,
+                last_seen_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute("CREATE INDEX IF NOT EXISTS user_presence_last_seen_idx ON user_presence (last_seen_at)")
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS direct_challenges (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                sender TEXT NOT NULL,
+                recipient TEXT NOT NULL,
+                time_control TEXT NOT NULL DEFAULT '180,2',
+                status TEXT NOT NULL DEFAULT 'pending',
+                game_id TEXT,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                responded_at TEXT
+            )
+        ''')
+        cursor.execute("CREATE INDEX IF NOT EXISTS direct_challenges_recipient_status_idx ON direct_challenges (recipient, status)")
+        cursor.execute("CREATE INDEX IF NOT EXISTS direct_challenges_sender_status_idx ON direct_challenges (sender, status)")
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS ranked_queue (
+                username TEXT PRIMARY KEY,
+                rating INTEGER NOT NULL,
+                time_control TEXT NOT NULL,
+                status TEXT NOT NULL DEFAULT 'waiting',
+                game_id TEXT,
+                queued_at TEXT DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute("CREATE INDEX IF NOT EXISTS ranked_queue_status_time_idx ON ranked_queue (status, time_control, queued_at)")
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS messages (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -181,21 +240,36 @@ def init_db():
                 bot_number INTEGER DEFAULT 0,
                 bot_rating INTEGER DEFAULT 500,
                 bot_seal TEXT DEFAULT '',
+                classic_mode TEXT DEFAULT '',
+                classic_bot_number INTEGER DEFAULT 0,
                 rated INTEGER DEFAULT 0,
                 draw_offered_by TEXT,
                 created_at TEXT DEFAULT CURRENT_TIMESTAMP,
                 updated_at TEXT DEFAULT CURRENT_TIMESTAMP
             )
         ''')
+        cursor.execute("PRAGMA table_info(games)")
+        game_columns = {row['name'] for row in cursor.fetchall()}
+        for column, definition in {
+            'classic_mode': "TEXT DEFAULT ''",
+            'classic_bot_number': "INTEGER DEFAULT 0"
+        }.items():
+            if column not in game_columns:
+                cursor.execute(f"ALTER TABLE games ADD COLUMN {column} {definition}")
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS classic_profiles (
                 username TEXT NOT NULL,
                 mode TEXT NOT NULL DEFAULT 'blitz',
                 rating INTEGER NOT NULL DEFAULT 1200,
+                games_played INTEGER NOT NULL DEFAULT 0,
                 last_simulation TEXT DEFAULT CURRENT_TIMESTAMP,
                 PRIMARY KEY (username, mode)
             )
         ''')
+        cursor.execute("PRAGMA table_info(classic_profiles)")
+        classic_profile_columns = {row['name'] for row in cursor.fetchall()}
+        if 'games_played' not in classic_profile_columns:
+            cursor.execute("ALTER TABLE classic_profiles ADD COLUMN games_played INTEGER NOT NULL DEFAULT 0")
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS classic_bots (
                 username TEXT NOT NULL,

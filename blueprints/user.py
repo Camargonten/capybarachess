@@ -7,11 +7,15 @@ from core.constants import (
     SHOP_ITEMS, PROMO_CODES, BOT_SEALS, CLASSIC_MODES, MISSION_DEFINITIONS,
     CLASSIC_LEGENDS, CLASSIC_OFFICIAL_BOTS, CLASSIC_FIRST_NAMES, CLASSIC_LAST_NAMES, CLASSIC_STYLES
 )
-from core.security import rate_limit
+from core.security import rate_limit, parse_bounded_integer
 from core.engine import elo_expected, apply_fide_rating_update
 from blueprints.auth import is_user_admin
 
 user_bp = Blueprint('user', __name__)
+
+def user_is_calibrated(conn, username: str) -> bool:
+    row = conn.execute("SELECT calibrated FROM users WHERE username = ?", (username,)).fetchone()
+    return bool(row and row['calibrated'])
 
 def classic_bot_rating(bot_number: int) -> int:
     if len(CLASSIC_LEGENDS) < bot_number <= len(CLASSIC_LEGENDS) + len(CLASSIC_OFFICIAL_BOTS):
@@ -21,10 +25,17 @@ def classic_bot_rating(bot_number: int) -> int:
 def ensure_classic_profile(username: str):
     with get_db() as conn:
         cursor = conn.cursor()
+        user = cursor.execute("SELECT rating, calibrated FROM users WHERE username = ?", (username,)).fetchone()
+        seed_rating = user['rating'] if user and user['calibrated'] else 1200
         cursor.executemany(
-            "INSERT OR IGNORE INTO classic_profiles (username, mode) VALUES (?, ?)",
-            [(username, mode) for mode in CLASSIC_MODES]
+            "INSERT OR IGNORE INTO classic_profiles (username, mode, rating) VALUES (?, ?, ?)",
+            [(username, mode, seed_rating) for mode in CLASSIC_MODES]
         )
+        if user and user['calibrated']:
+            cursor.execute(
+                "UPDATE classic_profiles SET rating = ? WHERE username = ? AND games_played = 0",
+                (user['rating'], username)
+            )
         cursor.executemany(
             "INSERT OR IGNORE INTO missions (username, mission_id) VALUES (?, ?)",
             [(username, m[0]) for m in MISSION_DEFINITIONS]
@@ -142,10 +153,41 @@ def update_profile_name():
         return jsonify({"error": "O nome de perfil deve ter entre 1 e 30 caracteres."}), 400
 
     with get_db() as conn:
-        cursor = conn.execute("UPDATE users SET display_name = ? WHERE username = ?", (display_name, username))
-        if cursor.rowcount != 1:
+        conn.execute("BEGIN IMMEDIATE")
+        user = conn.execute(
+            "SELECT display_name, display_name_changes, coins FROM users WHERE username = ?",
+            (username,)
+        ).fetchone()
+        if not user:
             return jsonify({"error": "Conta não encontrada."}), 404
-    return jsonify({"success": True, "display_name": display_name})
+
+        current_name = user['display_name'] or username
+        changes = user['display_name_changes'] or 0
+        if display_name == current_name:
+            return jsonify({
+                "success": True,
+                "display_name": current_name,
+                "display_name_changes": changes,
+                "coins": user['coins'],
+                "charged": 0
+            })
+
+        charged = 0 if changes == 0 else 100
+        if user['coins'] < charged:
+            return jsonify({"error": "São necessárias 100 moedas para alterar o nome novamente."}), 400
+
+        conn.execute(
+            "UPDATE users SET display_name = ?, display_name_changes = ?, coins = coins - ? WHERE username = ?",
+            (display_name, changes + 1, charged, username)
+        )
+        remaining_coins = user['coins'] - charged
+    return jsonify({
+        "success": True,
+        "display_name": display_name,
+        "display_name_changes": changes + 1,
+        "coins": remaining_coins,
+        "charged": charged
+    })
 
 @user_bp.route('/profile/bio', methods=['POST'])
 def update_profile_bio():
@@ -172,7 +214,9 @@ def profile_settings():
 
     colorblind = 1 if data.get('colorblind_mode') else 0
     skip_anim = 1 if data.get('skip_animation') else 0
-    bgm = int(data.get('bgm_choice', 1))
+    bgm = parse_bounded_integer(data.get('bgm_choice', 1), 1, 4)
+    if bgm is None:
+        return jsonify({"error": "Opção de música inválida."}), 400
 
     with get_db() as conn:
         conn.execute("""
@@ -237,7 +281,7 @@ def reset_account():
         if not user:
             return jsonify({"error": "Conta não encontrada."}), 404
 
-        conn.execute("UPDATE users SET coins = 100, rating = 1200, promo_count = 0, inventory = '[]', calibrated = 0, calibration_games = 0, avatar = '', bio = '', active_frame = '', active_banner = '', active_piece_skin = '' WHERE username = ?", (username,))
+        conn.execute("UPDATE users SET coins = 100, rating = 1200, promo_count = 0, display_name_changes = 0, inventory = '[]', calibrated = 0, calibration_games = 0, avatar = '', bio = '', active_frame = '', active_banner = '', active_piece_skin = '' WHERE username = ?", (username,))
         conn.execute("DELETE FROM achievements WHERE username = ?", (username,))
         conn.execute("DELETE FROM promo_redemptions WHERE username = ?", (username,))
         conn.execute("DELETE FROM friend_requests WHERE sender = ? OR recipient = ?", (username, username))
@@ -247,35 +291,7 @@ def reset_account():
 
 @user_bp.route('/calibrate', methods=['POST'])
 def calibrate():
-    data = request.get_json(silent=True) or {}
-    username = session.get('username') or str(data.get('username', '')).strip()
-    bot_rating = int(data.get('bot_rating', 1000))
-    result = str(data.get('result', ''))
-
-    if not username or result not in {'win', 'draw', 'loss'}:
-        return jsonify({"error": "Calibração inválida."}), 400
-
-    with get_db() as conn:
-        user = conn.execute("SELECT rating, calibrated, calibration_games FROM users WHERE username = ?", (username,)) .fetchone()
-        if not user:
-            return jsonify({"error": "Conta não encontrada."}), 404
-
-        cal_games = user['calibration_games'] or 0
-        if cal_games >= 2:
-            return jsonify({"error": "Sua calibração inicial já foi concluída (2 partidas)."}), 400
-
-        score = {'win': 1.0, 'draw': 0.5, 'loss': 0.0}[result]
-        fide_delta, new_rating = apply_fide_rating_update(conn.cursor(), username, bot_rating, score)
-        u_now = conn.execute("SELECT calibrated, calibration_games FROM users WHERE username = ?", (username,)).fetchone()
-
-    return jsonify({
-        "success": True,
-        "rating": new_rating,
-        "change": fide_delta,
-        "calibration_games": u_now['calibration_games'],
-        "calibration_allowed": u_now['calibration_games'] < 2,
-        "calibrated": bool(u_now['calibrated'])
-    })
+    return jsonify({"error": "O rating é calibrado automaticamente ao concluir duas partidas contra os bots oficiais iniciais."}), 410
 
 @user_bp.route('/match_result', methods=['POST'])
 def match_result():
@@ -395,14 +411,15 @@ def list_missions():
     ensure_classic_profile(username)
     with get_db() as conn:
         rows = conn.execute("SELECT mission_id, progress, completed, claimed FROM missions WHERE username = ?", (username,)).fetchall()
-        row_dict = {r['mission_id']: r for r in rows}
+        row_dict = {r['mission_id']: dict(r) for r in rows}
 
     return jsonify({"missions": [{
-        "id": m[0], "title": m[1], "target": m[2], "reward": m[3],
-        "progress": row_dict.get(m[0], {}).get('progress', 0) if row_dict.get(m[0]) else 0,
-        "completed": row_dict.get(m[0], {}).get('completed', 0) if row_dict.get(m[0]) else 0,
-        "claimed": row_dict.get(m[0], {}).get('claimed', 0) if row_dict.get(m[0]) else 0
-    } for m in MISSION_DEFINITIONS]})
+        "id": mission[0], "title": mission[1], "target": mission[2],
+        "reward": mission[3], "difficulty": mission[4],
+        "progress": row_dict.get(mission[0], {}).get('progress', 0),
+        "completed": row_dict.get(mission[0], {}).get('completed', 0),
+        "claimed": row_dict.get(mission[0], {}).get('claimed', 0)
+    } for mission in MISSION_DEFINITIONS]})
 
 @user_bp.route('/missions/claim', methods=['POST'])
 def claim_mission():
@@ -418,6 +435,7 @@ def claim_mission():
         return jsonify({"error": "Missão não encontrada."}), 404
 
     with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
         row = conn.execute(
             "SELECT progress, completed, claimed FROM missions WHERE username = ? AND mission_id = ?",
             (username, mission_id)
@@ -426,9 +444,16 @@ def claim_mission():
             return jsonify({"error": "Missão ainda não disponível para resgate."}), 400
 
         u_row = conn.execute("SELECT coins FROM users WHERE username = ?", (username,)).fetchone()
+        if not u_row:
+            return jsonify({"error": "Conta não encontrada."}), 404
         coins = u_row['coins']
-        conn.execute("UPDATE missions SET claimed = 1 WHERE username = ? AND mission_id = ?", (username, mission_id))
-        conn.execute("UPDATE users SET coins = ? WHERE username = ?", (coins + mission[3], username))
+        cursor = conn.execute(
+            "UPDATE missions SET claimed = 1 WHERE username = ? AND mission_id = ? AND completed = 1 AND claimed = 0",
+            (username, mission_id)
+        )
+        if cursor.rowcount != 1:
+            return jsonify({"error": "Esta recompensa já foi resgatada."}), 409
+        conn.execute("UPDATE users SET coins = coins + ? WHERE username = ?", (mission[3], username))
 
     return jsonify({"success": True, "coins": coins + mission[3], "reward": mission[3]})
 
@@ -441,6 +466,10 @@ def classic_ranking():
         mode = 'blitz'
     if not username:
         return jsonify({"error": "Ranking inválido."}), 400
+
+    with get_db() as conn:
+        if not user_is_calibrated(conn, username):
+            return jsonify({"error": "Conclua duas partidas de calibração antes de acessar o modo clássico."}), 403
 
     ensure_classic_profile(username)
     simulate_classic_bots(username, mode)
@@ -460,52 +489,7 @@ def classic_ranking():
 
 @user_bp.route('/classic/result', methods=['POST'])
 def classic_result():
-    data = request.get_json(silent=True) or {}
-    username = session.get('username') or str(data.get('username', '')).strip()
-    bot_number = data.get('bot_number')
-    result = data.get('result')
-    mode = data.get('mode', 'blitz')
-    if mode not in CLASSIC_MODES:
-        mode = 'blitz'
-    if not username or not isinstance(bot_number, int) or not 1 <= bot_number <= 700 or result not in {'win', 'draw', 'loss'}:
-        return jsonify({"error": "Resultado clássico inválido."}), 400
-
-    ensure_classic_profile(username)
-    with get_db() as conn:
-        p_row = conn.execute("SELECT rating FROM classic_profiles WHERE username = ? AND mode = ?", (username, mode)).fetchone()
-        player_rating = p_row['rating'] if p_row else 1200
-        bot_row = conn.execute("SELECT rating FROM classic_bots WHERE username = ? AND mode = ? AND bot_number = ?", (username, mode, bot_number)).fetchone()
-        if not bot_row:
-            return jsonify({"error": "Bot não encontrado."}), 404
-
-        bot_rating = bot_row['rating']
-        score = {'win': 1.0, 'draw': 0.5, 'loss': 0.0}[result]
-
-        diff = max(-400, min(400, bot_rating - player_rating))
-        expected = 1.0 / (1.0 + 10.0 ** (diff / 400.0))
-        new_mode_rating = max(100, round(player_rating + 20 * (score - expected)))
-        conn.execute("UPDATE classic_profiles SET rating = ? WHERE username = ? AND mode = ?", (new_mode_rating, username, mode))
-
-        fide_delta, _ = apply_fide_rating_update(conn.cursor(), username, bot_rating, score)
-
-        coins_map = {'bullet': {'win': 5, 'draw': 2, 'loss': 0}, 'blitz': {'win': 10, 'draw': 3, 'loss': 0}, 'rapid': {'win': 20, 'draw': 5, 'loss': 0}}
-        coins_won = coins_map.get(mode, coins_map['blitz']).get(result, 0)
-        if coins_won > 0:
-            conn.execute("UPDATE users SET coins = coins + ? WHERE username = ?", (coins_won, username))
-
-        u_row = conn.execute("SELECT coins, rating, calibration_games, calibrated FROM users WHERE username = ?", (username,)).fetchone()
-
-    return jsonify({
-        "success": True,
-        "mode": mode,
-        "rating": new_mode_rating,
-        "global_rating": u_row['rating'],
-        "coins": u_row['coins'],
-        "earned_coins": coins_won,
-        "change": fide_delta,
-        "calibration_games": u_row['calibration_games'] or 0,
-        "calibrated": bool(u_row['calibrated'])
-    })
+    return jsonify({"error": "O resultado clássico é processado automaticamente ao encerrar a partida."}), 410
 
 @user_bp.route('/classic/matchmake', methods=['POST'])
 def classic_matchmake():
@@ -518,10 +502,14 @@ def classic_matchmake():
     if not username:
         return jsonify({"error": "Emparelhamento inválido."}), 400
 
-    min_offset = int(data.get('min_offset', -100))
-    max_offset = int(data.get('max_offset', 200))
-    min_offset = max(-300, min(200, min_offset))
-    max_offset = max(min_offset, min(400, max_offset))
+    with get_db() as conn:
+        if not user_is_calibrated(conn, username):
+            return jsonify({"error": "Conclua duas partidas de calibração antes de buscar bots clássicos."}), 403
+
+    min_offset = parse_bounded_integer(data.get('min_offset', -100), -300, 200)
+    max_offset = parse_bounded_integer(data.get('max_offset', 200), -300, 400)
+    if min_offset is None or max_offset is None or max_offset < min_offset:
+        return jsonify({"error": "Faixa de rating inválida."}), 400
 
     ensure_classic_profile(username)
     with get_db() as conn:
@@ -547,7 +535,7 @@ def classic_matchmake():
         return jsonify({"error": "Nenhum adversário disponível nesta faixa."}), 404
 
     bot = random.choice(candidates)
-    return jsonify({"success": True, "bot": {"number": bot['bot_number'], "name": bot['bname'], "rating": bot['rating'], "style": bot['style']}})
+    return jsonify({"success": True, "mode": mode, "bot": {"number": bot['bot_number'], "name": bot['bname'], "rating": bot['rating'], "style": bot['style']}})
 
 @user_bp.route('/classic/rematch', methods=['POST'])
 def classic_rematch():

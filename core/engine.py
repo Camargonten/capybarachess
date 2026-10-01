@@ -1,13 +1,108 @@
-import random
+import asyncio
 import logging
-from threading import Lock
+from subprocess import TimeoutExpired
+from threading import BoundedSemaphore
 import chess
-from stockfish import Stockfish
+import chess.engine
 from core.config import STOCKFISH_PATH
 
 logger = logging.getLogger("capybara_engine")
 
-_engine_lock = Lock()
+# Match Gunicorn's four request threads while keeping independent games concurrent.
+_engine_slots = BoundedSemaphore(value=4)
+
+def _open_simple_engine(command: str, timeout: float) -> chess.engine.SimpleEngine:
+    async def initialize(future):
+        transport = None
+        protocol = None
+        engine = None
+        try:
+            transport, protocol = await chess.engine.UciProtocol.popen(command)
+            engine = chess.engine.SimpleEngine(transport, protocol, timeout=timeout)
+            await asyncio.wait_for(protocol.initialize(), timeout)
+        except BaseException:
+            if engine:
+                engine.close()
+            elif transport:
+                transport.close()
+            if transport and protocol:
+                process = transport.get_extra_info('subprocess')
+                if process and process.returncode is None:
+                    completed, _ = await asyncio.wait({protocol.returncode}, timeout=1.0)
+                    if not completed:
+                        process.terminate()
+                        completed, _ = await asyncio.wait({protocol.returncode}, timeout=1.0)
+                    if not completed:
+                        process.kill()
+                        await asyncio.wait({protocol.returncode}, timeout=1.0)
+            raise
+
+        future.set_result(engine)
+        try:
+            returncode = await protocol.returncode
+            engine.returncode.set_result(returncode)
+        finally:
+            engine.close()
+        await engine.shutdown_event.wait()
+
+    return chess.engine.run_in_background(
+        initialize,
+        name=f"SimpleEngine (command={command!r})",
+    )
+
+BOT_STRENGTH_TIERS = (
+    (500, 0, 300),
+    (650, 1, 400),
+    (800, 2, 500),
+    (950, 3, 600),
+    (1100, 4, 750),
+    (1250, 5, 900),
+    (1400, 6, 1100),
+    (1550, 7, 1300),
+    (1700, 8, 1500),
+    (1850, 9, 1700),
+    (2000, 10, 1900),
+    (2150, 12, 2100),
+    (2300, 14, 2300),
+    (2500, 16, 2500),
+    (2750, 18, 2800),
+    (3000, 20, 3000),
+)
+
+def get_bot_strength_profile(bot_rating: int) -> dict[str, int]:
+    rating = max(500, min(3000, int(bot_rating)))
+    tier_index = min(
+        range(len(BOT_STRENGTH_TIERS)),
+        key=lambda index: abs(BOT_STRENGTH_TIERS[index][0] - rating)
+    )
+    tier_rating, skill_level, think_time_ms = BOT_STRENGTH_TIERS[tier_index]
+    return {
+        "level": tier_index + 1,
+        "rating": tier_rating,
+        "skill_level": skill_level,
+        "think_time_ms": think_time_ms,
+    }
+
+def _shutdown_simple_engine(engine: chess.engine.SimpleEngine) -> None:
+    # Wait for UCI quit, then escalate to terminate/kill and reap a stuck child.
+    process = engine.protocol.transport.get_extra_info('subprocess')
+    try:
+        engine.quit()
+    except Exception as error:
+        logger.warning("Stockfish graceful shutdown failed: %s", error)
+        engine.close()
+
+    if process is None or process.poll() is not None:
+        return
+    try:
+        process.wait(timeout=1.0)
+    except TimeoutExpired:
+        process.terminate()
+        try:
+            process.wait(timeout=1.0)
+        except TimeoutExpired:
+            process.kill()
+            process.wait(timeout=1.0)
 
 def elo_expected(rating_a: float, rating_b: float) -> float:
     diff = max(-400.0, min(400.0, float(rating_b - rating_a)))
@@ -109,35 +204,47 @@ def categorize_time_control(time_initial: int, time_increment: int = 0) -> str:
         return 'rapid'
     return 'custom'
 
-def get_bot_move_fide(board: chess.Board, bot_rating: int, fast: bool = False):
+def get_bot_move_fide(board: chess.Board, bot_rating: int, remaining_time: float | None = None):
     """
-    Calcula o lance do bot com Stockfish isolado por thread lock e tempo de reflexão realista.
+    Calcula lances em processos UCI limitados por timeout e slots concorrentes.
     """
     if board.is_game_over():
         return None, 0
 
-    think_time_ms = 1 if fast else 4000
+    profile = get_bot_strength_profile(bot_rating)
+    fast = remaining_time is not None and remaining_time <= 10
+    think_time_ms = 1 if fast else profile['think_time_ms']
+    if not STOCKFISH_PATH:
+        raise RuntimeError("Stockfish não está instalado ou não tem permissão de execução.")
 
     try:
-        with _engine_lock:
-            engine = Stockfish(path=STOCKFISH_PATH)
-            engine.set_fen_position(board.fen())
+        with _engine_slots:
+            timeout_seconds = max(5.0, think_time_ms / 1000 + 5.0)
+            engine = _open_simple_engine(STOCKFISH_PATH, timeout_seconds)
+            try:
+                if profile['level'] <= 6:
+                    engine.configure({
+                        'UCI_LimitStrength': False,
+                        'Skill Level': profile['skill_level'],
+                    })
+                else:
+                    engine.configure({
+                        'UCI_LimitStrength': True,
+                        'UCI_Elo': profile['rating'],
+                    })
 
-            clamped_rating = max(500, min(3000, bot_rating))
-            skill_level = max(0, min(20, round((clamped_rating - 500) * 20 / 2500)))
-            engine.set_skill_level(skill_level)
+                result = engine.play(
+                    board,
+                    chess.engine.Limit(time=think_time_ms / 1000),
+                    info=chess.engine.INFO_NONE,
+                )
+                best_move = result.move
 
-            stockfish_elo = max(1320, min(3190, clamped_rating))
-            engine.set_elo_rating(stockfish_elo)
-
-            best_move = engine.get_best_move_time(think_time_ms)
-
-            if best_move and chess.Move.from_uci(best_move) in board.legal_moves:
-                return best_move, think_time_ms
-    except Exception as e:
-        logger.warning(f"Stockfish execution fallback: {e}")
-
-    legal_moves = list(board.legal_moves)
-    tactical_moves = [m for m in legal_moves if board.is_capture(m) or board.gives_check(m)]
-    chosen = random.choice(tactical_moves if tactical_moves and bot_rating >= 1200 else legal_moves)
-    return chosen.uci(), think_time_ms
+                if best_move and best_move in board.legal_moves:
+                    return best_move.uci(), think_time_ms
+                raise RuntimeError("Stockfish não retornou um lance legal para a posição.")
+            finally:
+                _shutdown_simple_engine(engine)
+    except Exception as error:
+        logger.error("Falha ao calcular lance com Stockfish: %s", error)
+        raise RuntimeError("O motor Stockfish não conseguiu calcular um lance.") from error

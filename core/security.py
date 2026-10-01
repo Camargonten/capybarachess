@@ -77,20 +77,32 @@ def apply_security_headers(response):
     return response
 
 def validate_username(username: str) -> bool:
-    if not username or len(username) < 3 or len(username) > 25:
+    if not isinstance(username, str) or len(username) < 3 or len(username) > 25:
         return False
-    return bool(re.match(r'^[A-Za-z0-9_ -]+$', username))
+    return re.fullmatch(r'[A-Za-z0-9_ -]+', username) is not None
+
+def parse_bounded_integer(value, minimum: int, maximum: int) -> int | None:
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        parsed = value
+    elif isinstance(value, str) and re.fullmatch(r'-?[0-9]+', value):
+        parsed = int(value)
+    else:
+        return None
+    return parsed if minimum <= parsed <= maximum else None
 
 def validate_uci_move(move_str: str) -> bool:
-    if not move_str or len(move_str) not in (4, 5):
+    if not isinstance(move_str, str) or len(move_str) not in (4, 5):
         return False
-    return bool(re.match(r'^[a-h][1-8][a-h][1-8][qrbn]?$', move_str.lower()))
+    return re.fullmatch(r'[a-h][1-8][a-h][1-8][qrbn]?', move_str.lower()) is not None
 
 def validate_fen(fen_str: str) -> bool:
-    if not fen_str or len(fen_str) > 120:
+    if not isinstance(fen_str, str) or not fen_str or len(fen_str) > 120:
+        return False
+    if re.fullmatch(r'[A-Za-z0-9/ -]+', fen_str) is None or len(fen_str.split(' ')) != 6:
         return False
     try:
-        chess.Board(fen_str)
-        return True
+        return chess.Board(fen_str).is_valid()
     except Exception:
         return False

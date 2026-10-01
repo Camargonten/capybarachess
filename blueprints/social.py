@@ -1,13 +1,23 @@
 import random
+import re
 import secrets
 import time
 from flask import Blueprint, jsonify, request, session
 from werkzeug.security import generate_password_hash, check_password_hash
-from core.db import get_db
+from core.db import get_db, cleanup_ephemeral_sessions
 from core.constants import CLAN_BADGES
-from core.security import rate_limit
+from core.security import rate_limit, parse_bounded_integer
 
 social_bp = Blueprint('social', __name__)
+
+def format_user_id(user_id: int) -> str:
+    return f"#{int(user_id):02d}"
+
+def is_user_online(conn, username: str) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM user_presence WHERE username = ? AND last_seen_at >= datetime('now', '-45 seconds')",
+        (username,)
+    ).fetchone() is not None
 
 def are_friends(conn, first_user: str, second_user: str) -> bool:
     row = conn.execute("""
@@ -23,10 +33,12 @@ def ranking_online():
     current_user = session.get('username') or request.args.get('username', '').strip()
     with get_db() as conn:
         rows = conn.execute("""
-            SELECT username, display_name, rating, coins, avatar, active_frame, active_banner, calibrated
-            FROM users
-            WHERE rating IS NOT NULL
-            ORDER BY rating DESC, coins DESC, id ASC
+                 SELECT u.id, u.username, u.display_name, u.rating, u.coins, u.avatar, u.active_frame,
+                     u.active_banner, u.calibrated,
+                     CASE WHEN p.last_seen_at >= datetime('now', '-45 seconds') THEN 1 ELSE 0 END AS online
+                 FROM users u LEFT JOIN user_presence p ON p.username = u.username
+                 WHERE u.rating IS NOT NULL
+                 ORDER BY u.rating DESC, u.coins DESC, u.id ASC
             LIMIT 100
         """).fetchall()
 
@@ -41,6 +53,8 @@ def ranking_online():
 
             ranking.append({
                 "rank": idx,
+                "user_id": row['id'],
+                "formatted_id": format_user_id(row['id']),
                 "username": uname,
                 "display_name": row['display_name'] or uname,
                 "rating": row['rating'],
@@ -49,7 +63,8 @@ def ranking_online():
                 "active_frame": row['active_frame'] or '',
                 "active_banner": row['active_banner'] or '',
                 "seal": seal,
-                "calibrated": bool(row['calibrated'])
+                "calibrated": bool(row['calibrated']),
+                "online": bool(row['online'])
             })
             if current_user and uname == current_user:
                 user_rank = idx
@@ -65,16 +80,44 @@ def ranking_online():
 def search_users():
     username = request.args.get('username', '').strip()
     query = request.args.get('query', '').strip()
-    if not username or not query or len(query) < 2:
+    if not username or not query:
         return jsonify({"users": []})
-    
+
+    id_match = re.fullmatch(r'#?(\d+)', query)
     with get_db() as conn:
-        rows = conn.execute("""
-            SELECT username, rating FROM users
-            WHERE username != ? AND username LIKE ?
-            ORDER BY rating DESC, username ASC LIMIT 10
-        """, (username, f"%{query}%")).fetchall()
-        users = [{"username": r['username'], "rating": r['rating']} for r in rows]
+        if id_match and query.startswith('#'):
+            rows = conn.execute("""
+                SELECT u.id, u.username, u.display_name, u.rating, u.avatar,
+                       CASE WHEN p.last_seen_at >= datetime('now', '-45 seconds') THEN 1 ELSE 0 END AS online
+                FROM users u LEFT JOIN user_presence p ON p.username = u.username
+                WHERE u.username != ? AND u.id = ?
+                ORDER BY u.id ASC LIMIT 10
+            """, (username, int(id_match.group(1)))).fetchall()
+        elif id_match:
+            rows = conn.execute("""
+                SELECT u.id, u.username, u.display_name, u.rating, u.avatar,
+                       CASE WHEN p.last_seen_at >= datetime('now', '-45 seconds') THEN 1 ELSE 0 END AS online
+                FROM users u LEFT JOIN user_presence p ON p.username = u.username
+                WHERE u.username != ? AND (u.id = ? OR u.username = ? COLLATE NOCASE OR u.display_name = ? COLLATE NOCASE)
+                ORDER BY u.id ASC LIMIT 10
+            """, (username, int(id_match.group(1)), query, query)).fetchall()
+        else:
+            rows = conn.execute("""
+                SELECT u.id, u.username, u.display_name, u.rating, u.avatar,
+                       CASE WHEN p.last_seen_at >= datetime('now', '-45 seconds') THEN 1 ELSE 0 END AS online
+                FROM users u LEFT JOIN user_presence p ON p.username = u.username
+                WHERE u.username != ? AND (u.username = ? COLLATE NOCASE OR u.display_name = ? COLLATE NOCASE)
+                ORDER BY u.id ASC LIMIT 10
+            """, (username, query, query)).fetchall()
+        users = [{
+            "user_id": row['id'],
+            "formatted_id": format_user_id(row['id']),
+            "username": row['username'],
+            "display_name": row['display_name'] or row['username'],
+            "rating": row['rating'],
+            "avatar": row['avatar'] or '',
+            "online": bool(row['online'])
+        } for row in rows]
 
     return jsonify({"users": users})
 
@@ -83,7 +126,7 @@ def player_profile(username):
     viewer = session.get('username') or request.args.get('viewer', '').strip()
     with get_db() as conn:
         player = conn.execute(
-            "SELECT username, display_name, bio, rating, avatar FROM users WHERE username = ?",
+            "SELECT id, username, display_name, bio, rating, avatar FROM users WHERE username = ?",
             (username,)
         ).fetchone()
         if not player:
@@ -112,6 +155,14 @@ def player_profile(username):
             WHERE (white_user = ? OR black_user = ?) AND status NOT IN ('waiting', 'active')
             ORDER BY created_at DESC LIMIT 25
         """, (username, username)).fetchall()
+        stats = conn.execute("""
+            SELECT COUNT(*) AS played,
+                   SUM(CASE WHEN (white_user = ? AND winner = 'white') OR (black_user = ? AND winner = 'black') THEN 1 ELSE 0 END) AS wins,
+                   SUM(CASE WHEN winner = 'draw' THEN 1 ELSE 0 END) AS draws
+            FROM games
+            WHERE (white_user = ? OR black_user = ?) AND status NOT IN ('waiting', 'active')
+        """, (username, username, username, username)).fetchone()
+        online = is_user_online(conn, username)
 
     history = []
     for game in games:
@@ -131,14 +182,150 @@ def player_profile(username):
 
     return jsonify({
         "success": True,
+        "user_id": player['id'],
+        "formatted_id": format_user_id(player['id']),
         "username": player['username'],
         "display_name": player['display_name'] or player['username'],
         "bio": player['bio'] or '',
         "rating": player['rating'],
         "avatar": player['avatar'] or '',
+        "online": online,
+        "stats": {
+            "played": stats['played'] or 0,
+            "wins": stats['wins'] or 0,
+            "draws": stats['draws'] or 0,
+            "losses": (stats['played'] or 0) - (stats['wins'] or 0) - (stats['draws'] or 0)
+        },
         "friend_status": friend_status,
         "history": history
     })
+
+@social_bp.route('/presence/ping', methods=['POST'])
+def presence_ping():
+    username = session.get('username')
+    if not username:
+        return jsonify({"error": "Não autenticado."}), 401
+    with get_db() as conn:
+        conn.execute("""
+            INSERT INTO user_presence (username, last_seen_at) VALUES (?, CURRENT_TIMESTAMP)
+            ON CONFLICT(username) DO UPDATE SET last_seen_at = CURRENT_TIMESTAMP
+        """, (username,))
+        cleanup_ephemeral_sessions(conn, username)
+    return jsonify({"success": True})
+
+@social_bp.route('/challenges/direct', methods=['POST'])
+def send_direct_challenge():
+    sender = session.get('username')
+    data = request.get_json(silent=True) or {}
+    recipient = str(data.get('recipient', '')).strip()
+    time_control = str(data.get('time_control', '180,2'))
+    if not sender:
+        return jsonify({"error": "Não autenticado."}), 401
+    if not recipient or recipient == sender:
+        return jsonify({"error": "Desafio inválido."}), 400
+    if time_control not in {'60,0', '180,2', '600,5'}:
+        time_control = '180,2'
+
+    with get_db() as conn:
+        target = conn.execute("""
+            SELECT u.id, u.display_name FROM users u
+            JOIN user_presence p ON p.username = u.username
+            WHERE u.username = ? AND p.last_seen_at >= datetime('now', '-45 seconds')
+        """, (recipient,)).fetchone()
+        if not target:
+            return jsonify({"error": "Este jogador não está online."}), 404
+        pending = conn.execute("""
+            SELECT id FROM direct_challenges
+            WHERE sender = ? AND recipient = ? AND status = 'pending'
+        """, (sender, recipient)).fetchone()
+        if pending:
+            return jsonify({"error": "Já existe um convite pendente para este jogador."}), 409
+        challenge = conn.execute(
+            "INSERT INTO direct_challenges (sender, recipient, time_control) VALUES (?, ?, ?)",
+            (sender, recipient, time_control)
+        )
+        challenge_id = challenge.lastrowid
+
+    return jsonify({"success": True, "challenge_id": challenge_id, "message": "Convite enviado."})
+
+@social_bp.route('/challenges/direct', methods=['GET'])
+def list_direct_challenges():
+    username = session.get('username')
+    if not username:
+        return jsonify({"error": "Não autenticado."}), 401
+    with get_db() as conn:
+        conn.execute("""
+            UPDATE direct_challenges SET status = 'expired', responded_at = CURRENT_TIMESTAMP
+            WHERE status = 'pending' AND created_at < datetime('now', '-2 minutes')
+        """)
+        incoming_rows = conn.execute("""
+            SELECT c.id, c.sender, u.id AS user_id, u.display_name
+            FROM direct_challenges c JOIN users u ON u.username = c.sender
+            WHERE c.recipient = ? AND c.status = 'pending'
+            ORDER BY c.created_at ASC LIMIT 10
+        """, (username,)).fetchall()
+        outgoing_rows = conn.execute("""
+            SELECT c.id, c.recipient, c.status, c.game_id
+            FROM direct_challenges c
+            WHERE c.sender = ? AND c.created_at >= datetime('now', '-1 day')
+            ORDER BY c.id DESC LIMIT 20
+        """, (username,)).fetchall()
+    return jsonify({
+        "incoming": [{
+            "id": row['id'], "sender": row['sender'],
+            "display_name": row['display_name'] or row['sender'],
+            "formatted_id": format_user_id(row['user_id'])
+        } for row in incoming_rows],
+        "outgoing": [{
+            "id": row['id'], "recipient": row['recipient'],
+            "status": row['status'], "game_id": row['game_id']
+        } for row in outgoing_rows]
+    })
+
+@social_bp.route('/challenges/direct/respond', methods=['POST'])
+def respond_direct_challenge():
+    recipient = session.get('username')
+    data = request.get_json(silent=True) or {}
+    challenge_id = data.get('challenge_id')
+    accept = data.get('accept') is True
+    if not recipient:
+        return jsonify({"error": "Não autenticado."}), 401
+    if not isinstance(challenge_id, int):
+        return jsonify({"error": "Convite inválido."}), 400
+
+    with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        challenge = conn.execute("""
+            SELECT sender, recipient, time_control FROM direct_challenges
+            WHERE id = ? AND recipient = ? AND status = 'pending'
+        """, (challenge_id, recipient)).fetchone()
+        if not challenge:
+            return jsonify({"error": "Convite não encontrado ou já respondido."}), 404
+
+        game_id = None
+        if accept:
+            try:
+                initial_time, increment = (int(part) for part in challenge['time_control'].split(',', 1))
+            except (ValueError, AttributeError):
+                initial_time, increment = 180, 2
+            game_id = secrets.token_urlsafe(8)
+            conn.execute("""
+                INSERT INTO games (
+                    id, white_user, black_user, creator_user, creator_color, game_type,
+                    time_initial, time_increment, white_time, black_time, last_move_time,
+                    fen, history, turn, status, rated
+                ) VALUES (?, ?, ?, ?, 'white', 'pvp', ?, ?, ?, ?, ?,
+                          'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', '[]', 'w', 'active', 0)
+            """, (
+                game_id, challenge['sender'], recipient, challenge['sender'],
+                initial_time, increment, float(initial_time), float(initial_time), time.time()
+            ))
+        status = 'accepted' if accept else 'declined'
+        conn.execute(
+            "UPDATE direct_challenges SET status = ?, game_id = ?, responded_at = CURRENT_TIMESTAMP WHERE id = ?",
+            (status, game_id, challenge_id)
+        )
+    return jsonify({"success": True, "status": status, "game_id": game_id})
 
 @social_bp.route('/notifications', methods=['GET'])
 def notifications():
@@ -249,6 +436,47 @@ def list_friends():
 
     return jsonify({"friends": friends, "incoming": incoming})
 
+@social_bp.route('/friends/active_games', methods=['GET'])
+def friend_active_games():
+    username = session.get('username')
+    if not username:
+        return jsonify({"error": "Não autenticado."}), 401
+
+    with get_db() as conn:
+        # Only accepted friends' active games are discoverable by spectators.
+        rows = conn.execute("""
+            SELECT g.id, g.white_user, g.black_user, g.game_type,
+                   g.time_initial, g.time_increment, g.updated_at,
+                   white.display_name AS white_display_name,
+                   black.display_name AS black_display_name
+            FROM games g
+            LEFT JOIN users white ON white.username = g.white_user
+            LEFT JOIN users black ON black.username = g.black_user
+            WHERE g.status = 'active'
+              AND (g.game_type = 'pvp' OR g.game_type = 'bot')
+              AND EXISTS (
+                  SELECT 1 FROM friend_requests fr
+                  WHERE fr.status = 'accepted' AND (
+                      (fr.sender = ? AND fr.recipient = g.white_user) OR
+                      (fr.recipient = ? AND fr.sender = g.white_user) OR
+                      (fr.sender = ? AND fr.recipient = g.black_user) OR
+                      (fr.recipient = ? AND fr.sender = g.black_user)
+                  )
+              )
+            ORDER BY g.updated_at DESC LIMIT 20
+        """, (username, username, username, username)).fetchall()
+
+    active_games = [{
+        "game_id": row['id'],
+        "white_user": row['white_display_name'] or row['white_user'],
+        "black_user": row['black_display_name'] or row['black_user'],
+        "game_type": row['game_type'],
+        "time_initial": row['time_initial'],
+        "time_increment": row['time_increment'],
+        "updated_at": row['updated_at'] or ''
+    } for row in rows]
+    return jsonify({"games": active_games})
+
 @social_bp.route('/messages', methods=['GET', 'POST'])
 def messages():
     if request.method == 'POST':
@@ -341,12 +569,16 @@ def clubs_create():
 
     name = str(data.get('name', '')).strip()
     description = str(data.get('description', '')).strip()[:200]
-    badge_id = max(1, min(10, int(data.get('badge_id', 1))))
+    badge_id = parse_bounded_integer(data.get('badge_id', 1), 1, 10)
+    if badge_id is None:
+        return jsonify({"error": "Brasão inválido."}), 400
     privacy = data.get('privacy', 'public')
     if privacy not in ('public', 'private_password', 'private_approval'):
         privacy = 'public'
     password = str(data.get('password', '')).strip()
-    min_rating = max(0, min(3000, int(data.get('min_rating', 0))))
+    min_rating = parse_bounded_integer(data.get('min_rating', 0), 0, 3000)
+    if min_rating is None:
+        return jsonify({"error": "Rating mínimo inválido."}), 400
 
     if not name or len(name) < 3 or len(name) > 30:
         return jsonify({"error": "Nome do clube deve ter entre 3 e 30 caracteres."}), 400
