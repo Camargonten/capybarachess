@@ -1,0 +1,22 @@
+/*
+ * Capybara Chess - Regras de UX/Acessibilidade aplicadas globalmente.
+ */
+
+button, .choice, select, a.button-like {
+    min-height: 44px;
+    touch-action: manipulation;
+}
+button[aria-label], button.icon-btn { min-width: 44px; }
+
+input[type="checkbox"] {
+    width: 20px; height: 20px;
+    accent-color: #f59e0b;
+    cursor: pointer; flex-shrink: 0;
+}
+label:has(> input[type="checkbox"]) {
+    min-height: 44px; display: flex; align-items: center; cursor: pointer;
+}
+input[type="text"], input[type="password"], input[type="search"] { min-height: 44px; }
+#shop-items, #achievement-list, .overflow-x-auto { -webkit-overflow-scrolling: touch; }
+#player-profile-cover img, #shop-banner-preview-img { image-rendering: auto; }
+@media (max-width: 480px) { button, .choice { line-height: 1.25; } }

@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs><radialGradient id="bg_lucas_mito" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#fbbf24"/><stop offset="100%" stop-color="#451a03"/></radialGradient></defs>
+  <rect width="100" height="100" fill="url(#bg_lucas_mito)"/>
+  <path d="M20 100 L32 66 L68 66 L80 100 Z" fill="#f8fafc"/><path d="M44 66 L50 80 L56 66 Z" fill="#eab308"/>
+  <circle cx="50" cy="44" r="21" fill="#f0b98d" stroke="#00000033" stroke-width="2"/>
+  <circle cx="43" cy="44" r="2.6" fill="#18181b"/><circle cx="57" cy="44" r="2.6" fill="#18181b"/>
+  <path d="M43 52 Q50 62 57 52 Z" fill="#7f1d1d"/><path d="M45 52 L55 52" stroke="#fff" stroke-width="2"/>
+  <path d="M30 38 Q32 20 50 20 Q68 20 70 38 Q62 28 50 28 Q38 28 30 38 Z" fill="#3f2a14"/><path d="M26 52 Q18 36 30 22 M30 24 L22 26 M28 32 L19 36 M27 41 L20 47" stroke="#16a34a" stroke-width="3" fill="none" stroke-linecap="round"/><path d="M74 52 Q82 36 70 22 M70 24 L78 26 M72 32 L81 36 M73 41 L80 47" stroke="#16a34a" stroke-width="3" fill="none" stroke-linecap="round"/><text x="50" y="86" font-size="9" font-weight="900" font-family="sans-serif" text-anchor="middle" fill="#b45309">MITO</text>
+  
+</svg>

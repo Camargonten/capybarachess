@@ -1,0 +1,11 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs><radialGradient id="bg_julia_alvoredo" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#34d399"/><stop offset="100%" stop-color="#064e3b"/></radialGradient></defs>
+  <rect width="100" height="100" fill="url(#bg_julia_alvoredo)"/>
+  <path d="M26 48 Q22 24 50 20 Q78 24 74 48 L74 78 L64 70 L64 50 L36 50 L36 70 L26 78 Z" fill="#7c2d12"/>  <path d="M20 100 L32 66 L68 66 L80 100 Z" fill="#065f46"/><path d="M44 66 L50 80 L56 66 Z" fill="#a7f3d0"/>
+  <circle cx="50" cy="44" r="21" fill="#f0b98d" stroke="#00000033" stroke-width="2"/>
+  <circle cx="43" cy="44" r="2.6" fill="#18181b"/><circle cx="57" cy="44" r="2.6" fill="#18181b"/><path d="M39 41 L36 39 M41 40 L40 37 M61 41 L64 39 M59 40 L60 37" stroke="#18181b" stroke-width="1.4" fill="none"/>
+  <path d="M44 53 Q50 59 56 53 Q50 55 44 53 Z" fill="#be123c" stroke="#9f1239" stroke-width="1"/>
+  <circle cx="38" cy="51" r="3" fill="#fb7185" opacity=".5"/><circle cx="62" cy="51" r="3" fill="#fb7185" opacity=".5"/>
+  <path d="M30 40 Q34 22 50 22 Q66 22 70 40 Q60 30 50 30 Q40 30 30 40 Z" fill="#7c2d12"/><circle cx="66" cy="28" r="4" fill="#f9a8d4"/><circle cx="71" cy="30" r="3.4" fill="#fbcfe8"/><circle cx="66" cy="32" r="3.2" fill="#f472b6"/><path d="M62 24 q-8 -8 -14 -4 q8 8 14 4 Z" fill="#22c55e"/>
+  
+</svg>

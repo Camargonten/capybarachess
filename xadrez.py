@@ -10,8 +10,8 @@ from core.config import (
     BASE_DIR, APP_ENV, APP_DEBUG, PORT, SECRET_KEY, COOKIE_SECURE,
     GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET
 )
-from core.db import init_db, get_db
-from core.security import apply_security_headers
+from core.db import init_db, get_db, freeze_clocks_after_downtime, start_heartbeat_thread
+from core.security import apply_security_headers, same_origin_guard
 from core.constants import (
     BOT_SEALS, SHOP_ITEMS, PROMO_CODES, CLAN_BADGES, CLASSIC_MODES, MISSION_DEFINITIONS
 )
@@ -26,20 +26,26 @@ from blueprints.social import social_bp
 from blueprints.user import user_bp, ensure_classic_profile
 from blueprints.analysis import analysis_bp
 
+
 logging.basicConfig(
     level=logging.INFO if not APP_DEBUG else logging.DEBUG,
     format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
 )
 logger = logging.getLogger("capybara_app")
 
+def google_locale_country_code(profile: dict) -> str:
+    locale = profile.get("locale", "")
+    match = re.fullmatch(r"[A-Za-z]{2,3}[-_]([A-Za-z]{2})", locale) if isinstance(locale, str) else None
+    country_code = match.group(1).upper() if match else ""
+    return "" if country_code in {"XA", "XB", "ZZ"} else country_code
+
 PUBLIC_ENDPOINTS = {
-    "index", "health", "service_worker", "static",
+    "index", "health", "service_worker", "static", "asset_links", "privacy_policy", "terms_of_use", "delete_account_info",
     "auth.register", "auth.login", "auth.logout", "auth.auth_me", "auth.auth_config",
     "google_login", "google_callback",
     "social.ranking_online",
     "game.game_state", "game.game_create", "game.game_join", "game.game_move",
     "game.game_resign", "game.game_draw_offer", "game.game_takeback", "game.game_claim_timeout",
-    "user.profile_equip", "user.profile_settings",
     "analysis.analyze_position"
 }
 
@@ -49,6 +55,7 @@ OWNER_FIELDS = {
     ("user.classic_matchmake", "POST"): ("username",),
     ("user.list_missions", "GET"): ("username",),
     ("user.claim_mission", "POST"): ("username",),
+    ("user.claim_all_missions", "POST"): ("username",),
     ("user.update_avatar", "POST"): ("username",),
     ("user.reset_account", "POST"): ("username",),
     ("user.calibrate", "POST"): ("username",),
@@ -87,6 +94,11 @@ def create_app():
     )
 
     init_db()
+    # Persistência: se o servidor ficou desligado, as partidas ativas voltam ao estado em que foram deixadas.
+    downtime = freeze_clocks_after_downtime()
+    if downtime:
+        logging.getLogger("capybara").info("Servidor religado após %.0fs; relógios das partidas ativas congelados.", downtime)
+    start_heartbeat_thread()
 
     app.register_blueprint(auth_bp)
     app.register_blueprint(game_bp)
@@ -98,6 +110,9 @@ def create_app():
     def enforce_account_security():
         if request.endpoint is None:
             return None
+        origin_error = same_origin_guard()
+        if origin_error:
+            return origin_error
         if request.endpoint in PUBLIC_ENDPOINTS or (request.endpoint and request.endpoint.startswith("static")):
             return None
 
@@ -159,7 +174,13 @@ def create_app():
 
     @app.route("/")
     def index():
-        return render_template("index.html")
+        from core.bot_identity import classic_bot_country
+        from core.constants import CLASSIC_BONUS_BOTS
+        bonus_bots = [
+            {"number": 701 + index, "name": name, "rating": rating, "country": classic_bot_country(701 + index)}
+            for index, (name, rating) in enumerate(CLASSIC_BONUS_BOTS)
+        ]
+        return render_template("index.html", bonus_bots=bonus_bots)
 
     @app.route("/health")
     def health():
@@ -171,6 +192,37 @@ def create_app():
         response.headers["Service-Worker-Allowed"] = "/"
         response.headers["Cache-Control"] = "no-cache, no-store, must-revalidate"
         return response
+
+    @app.route("/.well-known/assetlinks.json")
+    def asset_links():
+        """Digital Asset Links: liga o site ao app Android (Trusted Web Activity) publicado na Play Store.
+
+        Defina ANDROID_PACKAGE_NAME e ANDROID_SHA256_CERT_FINGERPRINTS (separadas por vírgula; use a
+        impressão digital do certificado de ASSINATURA DA PLAY, em Play Console > Integridade do app).
+        """
+        package = os.environ.get("ANDROID_PACKAGE_NAME", "").strip()
+        fingerprints = [f.strip().upper() for f in os.environ.get("ANDROID_SHA256_CERT_FINGERPRINTS", "").split(",") if f.strip()]
+        statements = []
+        if package and fingerprints:
+            statements.append({
+                "relation": ["delegate_permission/common.handle_all_urls"],
+                "target": {"namespace": "android_app", "package_name": package, "sha256_cert_fingerprints": fingerprints},
+            })
+        response = jsonify(statements)
+        response.headers["Cache-Control"] = "public, max-age=3600"
+        return response
+
+    @app.route("/privacidade")
+    def privacy_policy():
+        return render_template("legal/privacy.html")
+
+    @app.route("/termos")
+    def terms_of_use():
+        return render_template("legal/terms.html")
+
+    @app.route("/excluir-conta")
+    def delete_account_info():
+        return render_template("legal/delete_account.html")
 
     @app.route("/auth/google")
     def google_login():
@@ -191,6 +243,7 @@ def create_app():
         email = profile.get("email", "").strip().lower()
         if not google_sub or not email or profile.get("email_verified") is not True:
             return jsonify({"error": "O Google não confirmou um e-mail válido para esta conta."}), 403
+        country_code = google_locale_country_code(profile)
 
         with get_db() as conn:
             linked = conn.execute("SELECT username FROM users WHERE google_sub = ?", (google_sub,)).fetchone()
@@ -205,9 +258,21 @@ def create_app():
                 if linked and linked["username"] != current_username:
                     return redirect("/?google_error=google_already_linked")
                 username = current_username
-                conn.execute("UPDATE users SET google_sub = ?, google_email = ? WHERE username = ?", (google_sub, email, username))
+                conn.execute("""
+                    UPDATE users
+                    SET google_sub = ?, google_email = ?,
+                        country_code = CASE WHEN country_code = '' THEN ? ELSE country_code END,
+                        country_locked = 1
+                    WHERE username = ?
+                """, (google_sub, email, country_code, username))
             elif linked:
                 username = linked["username"]
+                conn.execute("""
+                    UPDATE users
+                    SET country_code = CASE WHEN country_code = '' THEN ? ELSE country_code END,
+                        country_locked = 1
+                    WHERE username = ?
+                """, (country_code, username))
             else:
                 base_username = re.sub(r"[^A-Za-z0-9_]", "_", profile.get("name") or email.split("@", 1)[0]).strip("_")[:20] or "Jogador"
                 username = base_username
@@ -218,14 +283,12 @@ def create_app():
                 from werkzeug.security import generate_password_hash
                 password_hash = generate_password_hash(secrets.token_urlsafe(32))
 
-                user_count = conn.execute("SELECT COUNT(*) as cnt FROM users").fetchone()["cnt"]
-                is_first_user = (user_count == 0)
-                initial_coins = 8000 if is_first_user else 100
-                initial_is_admin = 1 if is_first_user else 0
+                initial_coins = 100
+                initial_is_admin = 0
 
                 conn.execute(
-                    "INSERT INTO users (username, password, coins, rating, google_sub, google_email, is_admin) VALUES (?, ?, ?, 1200, ?, ?, ?)",
-                    (username, password_hash, initial_coins, google_sub, email, initial_is_admin)
+                    "INSERT INTO users (username, password, coins, rating, google_sub, google_email, country_code, country_locked, is_admin) VALUES (?, ?, ?, 1200, ?, ?, ?, ?, ?)",
+                    (username, password_hash, initial_coins, google_sub, email, country_code, 1, initial_is_admin)
                 )
 
             conn.execute("UPDATE users SET last_login = CURRENT_TIMESTAMP WHERE username = ?", (username,))

@@ -16,7 +16,14 @@ services:
         value: "true"
       - key: APP_DEBUG
         value: "false"
+      # Cole aqui a URL do PostgreSQL gratuito (Neon/Supabase) no painel do Render; sem ela os dados são apagados a cada reinício.
+      - key: DATABASE_URL
+        sync: false
       - key: DATABASE_PATH
         value: /tmp/capybara.db
+      - key: GOOGLE_CLIENT_ID
+        sync: false
+      - key: GOOGLE_CLIENT_SECRET
+        sync: false
       - key: STOCKFISH_PATH
         value: /usr/local/bin/stockfish

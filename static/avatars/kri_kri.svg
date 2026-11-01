@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs><radialGradient id="bg_kri_kri" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#1d4ed8"/><stop offset="100%" stop-color="#0b1437"/></radialGradient></defs>
+  <rect width="100" height="100" fill="url(#bg_kri_kri)"/>
+  <path d="M20 100 L32 66 L68 66 L80 100 Z" fill="#1e3a8a"/><path d="M44 66 L50 80 L56 66 Z" fill="#e2e8f0"/>
+  <circle cx="50" cy="44" r="21" fill="#f0b98d" stroke="#00000033" stroke-width="2"/>
+  <circle cx="43" cy="44" r="6" fill="#ffffff55" stroke="#1e293b" stroke-width="2"/><circle cx="57" cy="44" r="6" fill="#ffffff55" stroke="#1e293b" stroke-width="2"/><line x1="49" y1="44" x2="51" y2="44" stroke="#1e293b" stroke-width="2"/><circle cx="43" cy="44" r="2" fill="#18181b"/><circle cx="57" cy="44" r="2" fill="#18181b"/>
+  <path d="M44 53 Q50 58 56 53" stroke="#92400e" stroke-width="2" fill="none" stroke-linecap="round"/>
+  <path d="M29 42 Q30 20 50 20 Q70 20 71 42 Q64 30 50 30 Q36 30 29 42 Z" fill="#292524"/><path d="M34 54 Q50 72 66 54 Q60 62 50 62 Q40 62 34 54 Z" fill="#292524"/><circle cx="50" cy="82" r="7" fill="#eab308" stroke="#ca8a04" stroke-width="1.5"/><text x="50" y="85" font-size="6" font-weight="900" font-family="sans-serif" text-anchor="middle" fill="#713f12">GM</text>
+  
+</svg>

@@ -1,3 +1,4 @@
+import json
 import random
 import re
 import secrets
@@ -5,8 +6,8 @@ import time
 from flask import Blueprint, jsonify, request, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from core.db import get_db, cleanup_ephemeral_sessions
-from core.constants import CLAN_BADGES
-from core.security import rate_limit, parse_bounded_integer
+from core.constants import CLAN_BADGES, SHOP_ITEMS
+from core.security import rate_limit, parse_bounded_integer, google_account_is_linked
 
 social_bp = Blueprint('social', __name__)
 
@@ -126,7 +127,7 @@ def player_profile(username):
     viewer = session.get('username') or request.args.get('viewer', '').strip()
     with get_db() as conn:
         player = conn.execute(
-            "SELECT id, username, display_name, bio, rating, avatar FROM users WHERE username = ?",
+            "SELECT id, username, display_name, bio, rating, avatar, country_code, active_banner, active_frame FROM users WHERE username = ?",
             (username,)
         ).fetchone()
         if not player:
@@ -188,7 +189,10 @@ def player_profile(username):
         "display_name": player['display_name'] or player['username'],
         "bio": player['bio'] or '',
         "rating": player['rating'],
+        "country_code": player['country_code'] or '',
         "avatar": player['avatar'] or '',
+        "active_banner": player['active_banner'] or '',
+        "active_frame": player['active_frame'] or '',
         "online": online,
         "stats": {
             "played": stats['played'] or 0,
@@ -201,6 +205,7 @@ def player_profile(username):
     })
 
 @social_bp.route('/presence/ping', methods=['POST'])
+@rate_limit(max_requests=60, window_seconds=60)
 def presence_ping():
     username = session.get('username')
     if not username:
@@ -214,6 +219,7 @@ def presence_ping():
     return jsonify({"success": True})
 
 @social_bp.route('/challenges/direct', methods=['POST'])
+@rate_limit(max_requests=15, window_seconds=60)
 def send_direct_challenge():
     sender = session.get('username')
     data = request.get_json(silent=True) or {}
@@ -227,6 +233,8 @@ def send_direct_challenge():
         time_control = '180,2'
 
     with get_db() as conn:
+        if not google_account_is_linked(conn, sender):
+            return jsonify({"error": "Para jogar online, conecte uma conta Google ao seu perfil."}), 403
         target = conn.execute("""
             SELECT u.id, u.display_name FROM users u
             JOIN user_presence p ON p.username = u.username
@@ -283,6 +291,7 @@ def list_direct_challenges():
     })
 
 @social_bp.route('/challenges/direct/respond', methods=['POST'])
+@rate_limit(max_requests=15, window_seconds=60)
 def respond_direct_challenge():
     recipient = session.get('username')
     data = request.get_json(silent=True) or {}
@@ -304,6 +313,8 @@ def respond_direct_challenge():
 
         game_id = None
         if accept:
+            if not google_account_is_linked(conn, recipient) or not google_account_is_linked(conn, challenge['sender']):
+                return jsonify({"error": "Para jogar online, os dois jogadores precisam vincular uma conta Google."}), 403
             try:
                 initial_time, increment = (int(part) for part in challenge['time_control'].split(',', 1))
             except (ValueError, AttributeError):
@@ -334,19 +345,208 @@ def notifications():
         return jsonify({"error": "Não autenticado."}), 401
 
     with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        expired_gifts = conn.execute("""
+            SELECT id, sender, item_price, fee FROM gift_requests
+            WHERE status = 'pending' AND created_at < datetime('now', '-7 days')
+        """).fetchall()
+        for gift in expired_gifts:
+            conn.execute(
+                "UPDATE gift_requests SET status = 'expired', responded_at = CURRENT_TIMESTAMP WHERE id = ? AND status = 'pending'",
+                (gift['id'],)
+            )
+            conn.execute(
+                "UPDATE users SET coins = coins + ? WHERE username = ?",
+                (gift['item_price'] + gift['fee'], gift['sender'])
+            )
+        conn.execute("""
+            UPDATE rematch_requests SET status = 'expired'
+            WHERE status = 'pending' AND created_at < datetime('now', '-7 days')
+        """)
         rows = conn.execute("""
             SELECT fr.sender, u.display_name, fr.created_at
             FROM friend_requests fr JOIN users u ON u.username = fr.sender
             WHERE fr.recipient = ? AND fr.status = 'pending'
             ORDER BY fr.created_at DESC
         """, (username,)).fetchall()
+        rematches = conn.execute("""
+            SELECT rr.id, rr.requester, u.display_name, rr.created_at
+            FROM rematch_requests rr
+            JOIN users u ON u.username = rr.requester
+            WHERE rr.opponent = ? AND rr.status = 'pending'
+            ORDER BY rr.created_at DESC
+        """, (username,)).fetchall()
+        rematch_updates = conn.execute("""
+            SELECT id, status, new_game_id, responded_at
+            FROM rematch_requests
+            WHERE requester = ? AND status IN ('accepted', 'declined')
+              AND responded_at >= datetime('now', '-1 day')
+            ORDER BY responded_at DESC
+        """, (username,)).fetchall()
+        gifts = conn.execute("""
+            SELECT gr.id, gr.sender, u.display_name, gr.item_id, gr.message,
+                   gr.item_price, gr.fee, gr.created_at
+            FROM gift_requests gr
+            JOIN users u ON u.username = gr.sender
+            WHERE gr.recipient = ? AND gr.status = 'pending'
+            ORDER BY gr.created_at DESC
+        """, (username,)).fetchall()
 
-    return jsonify({"notifications": [
+    return jsonify({
+        "notifications": [
         {"sender": row['sender'], "display_name": row['display_name'] or row['sender'], "created_at": row['created_at']}
         for row in rows
-    ]})
+        ],
+        "rematches": [
+            {"id": row['id'], "requester": row['requester'], "display_name": row['display_name'] or row['requester'], "created_at": row['created_at']}
+            for row in rematches
+        ],
+        "rematch_updates": [
+            {"id": row['id'], "status": row['status'], "game_id": row['new_game_id']}
+            for row in rematch_updates
+        ],
+        "gifts": [
+            {
+                "id": row['id'], "sender": row['sender'],
+                "display_name": row['display_name'] or row['sender'],
+                "item_id": row['item_id'], "message": row['message'],
+                "item_price": row['item_price'], "fee": row['fee'],
+                "created_at": row['created_at']
+            }
+            for row in gifts
+        ]
+    })
+
+@social_bp.route('/gifts', methods=['POST'])
+@rate_limit(max_requests=8, window_seconds=60)
+def send_gift():
+    sender = session.get('username')
+    if not sender:
+        return jsonify({"error": "Entre na sua conta para enviar presentes."}), 401
+    data = request.get_json(silent=True) or {}
+    recipient = str(data.get('recipient', '')).strip()
+    item_id = str(data.get('item_id', '')).strip()
+    message = data.get('message', '')
+    if not isinstance(message, str) or len(message) > 200:
+        return jsonify({"error": "A mensagem deve ter no máximo 200 caracteres."}), 400
+    message = message.strip()
+    item_price = SHOP_ITEMS.get(item_id)
+    if not recipient or recipient == sender or item_price is None:
+        return jsonify({"error": "Destinatário ou item inválido."}), 400
+
+    fee = 50
+    total = item_price + fee
+    with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        recipient_row = conn.execute(
+            "SELECT inventory FROM users WHERE username = ?",
+            (recipient,)
+        ).fetchone()
+        sender_row = conn.execute(
+            "SELECT coins FROM users WHERE username = ?",
+            (sender,)
+        ).fetchone()
+        if not recipient_row or not sender_row:
+            return jsonify({"error": "Conta de origem ou destinatário não encontrada."}), 404
+        if not are_friends(conn, sender, recipient):
+            return jsonify({"error": "Só é possível enviar presentes a amigos."}), 403
+        recipient_inventory = set(json.loads(recipient_row['inventory'] or '[]'))
+        if item_id in recipient_inventory:
+            return jsonify({"error": "Seu amigo já possui este item."}), 409
+        if sender_row['coins'] < total:
+            return jsonify({"error": "Saldo insuficiente para o item e a taxa de emissão."}), 400
+
+        conn.execute(
+            "UPDATE users SET coins = coins - ? WHERE username = ? AND coins >= ?",
+            (total, sender, total)
+        )
+        conn.execute("""
+            INSERT INTO gift_requests (sender, recipient, item_id, message, item_price, fee)
+            VALUES (?, ?, ?, ?, ?, ?)
+        """, (sender, recipient, item_id, message, item_price, fee))
+        remaining = sender_row['coins'] - total
+
+    return jsonify({"success": True, "coins": remaining, "total_charged": total})
+
+@social_bp.route('/gifts/respond', methods=['POST'])
+@rate_limit(max_requests=15, window_seconds=60)
+def respond_gift():
+    recipient = session.get('username')
+    if not recipient:
+        return jsonify({"error": "Entre na sua conta para responder ao presente."}), 401
+    data = request.get_json(silent=True) or {}
+    gift_id = parse_bounded_integer(data.get('gift_id'), 1, 2_147_483_647)
+    accept = data.get('accept')
+    if gift_id is None or not isinstance(accept, bool):
+        return jsonify({"error": "Resposta ao presente inválida."}), 400
+
+    with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        gift = conn.execute("""
+            SELECT * FROM gift_requests
+            WHERE id = ? AND recipient = ? AND status = 'pending'
+        """, (gift_id, recipient)).fetchone()
+        if not gift:
+            return jsonify({"error": "Presente não encontrado ou já respondido."}), 404
+        expired = conn.execute(
+            "SELECT ? < datetime('now', '-7 days') AS expired",
+            (gift['created_at'],)
+        ).fetchone()['expired']
+        if expired:
+            conn.execute("""
+                UPDATE gift_requests SET status = 'expired', responded_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND status = 'pending'
+            """, (gift_id,))
+            conn.execute(
+                "UPDATE users SET coins = coins + ? WHERE username = ?",
+                (gift['item_price'] + gift['fee'], gift['sender'])
+            )
+            return jsonify({"error": "O presente expirou e o valor foi devolvido ao remetente."}), 410
+
+        if not accept:
+            conn.execute("""
+                UPDATE gift_requests SET status = 'declined', responded_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND status = 'pending'
+            """, (gift_id,))
+            conn.execute(
+                "UPDATE users SET coins = coins + ? WHERE username = ?",
+                (gift['item_price'] + gift['fee'], gift['sender'])
+            )
+            return jsonify({"success": True, "status": "declined"})
+
+        user = conn.execute(
+            "SELECT inventory FROM users WHERE username = ?",
+            (recipient,)
+        ).fetchone()
+        inventory = set(json.loads(user['inventory'] or '[]'))
+        if gift['item_id'] in inventory:
+            conn.execute("""
+                UPDATE gift_requests SET status = 'declined', responded_at = CURRENT_TIMESTAMP
+                WHERE id = ? AND status = 'pending'
+            """, (gift_id,))
+            conn.execute(
+                "UPDATE users SET coins = coins + ? WHERE username = ?",
+                (gift['item_price'] + gift['fee'], gift['sender'])
+            )
+            return jsonify({"error": "Você já possui este item; o presente foi devolvido ao remetente."}), 409
+
+        inventory.add(gift['item_id'])
+        conn.execute(
+            "UPDATE users SET inventory = ? WHERE username = ?",
+            (json.dumps(sorted(inventory)), recipient)
+        )
+        conn.execute("""
+            UPDATE gift_requests SET status = 'accepted', responded_at = CURRENT_TIMESTAMP
+            WHERE id = ? AND status = 'pending'
+        """, (gift_id,))
+
+    return jsonify({
+        "success": True, "status": "accepted", "item_id": gift['item_id'],
+        "sender": gift['sender'], "message": gift['message']
+    })
 
 @social_bp.route('/friends/request', methods=['POST'])
+@rate_limit(max_requests=10, window_seconds=60)
 def send_friend_request():
     data = request.get_json(silent=True) or {}
     sender = session.get('username')
@@ -393,6 +593,7 @@ def send_friend_request():
     return jsonify({"success": True, "message": "Pedido de amizade enviado!"})
 
 @social_bp.route('/friends/respond', methods=['POST'])
+@rate_limit(max_requests=15, window_seconds=60)
 def respond_friend_request():
     data = request.get_json(silent=True) or {}
     recipient = session.get('username')
@@ -561,6 +762,7 @@ def clubs_list():
     return jsonify({"success": True, "clubs": clubs})
 
 @social_bp.route('/clubs/create', methods=['POST'])
+@rate_limit(max_requests=5, window_seconds=60)
 def clubs_create():
     data = request.get_json(silent=True) or {}
     username = session.get('username') or str(data.get('username', '')).strip()
@@ -611,6 +813,7 @@ def clubs_create():
     return jsonify({"success": True, "club_id": club_id, "coins_remaining": coins - 600, "message": "Clube fundado com sucesso!"})
 
 @social_bp.route('/clubs/join', methods=['POST'])
+@rate_limit(max_requests=15, window_seconds=60)
 def clubs_join():
     data = request.get_json(silent=True) or {}
     username = session.get('username') or str(data.get('username', '')).strip()
@@ -703,6 +906,7 @@ def clubs_detail(club_id):
     })
 
 @social_bp.route('/clubs/<int:club_id>/message', methods=['POST'])
+@rate_limit(max_requests=30, window_seconds=60)
 def clubs_message(club_id):
     data = request.get_json(silent=True) or {}
     username = session.get('username') or str(data.get('username', '')).strip()
@@ -719,6 +923,7 @@ def clubs_message(club_id):
     return jsonify({"success": True})
 
 @social_bp.route('/clubs/<int:club_id>/challenge', methods=['POST'])
+@rate_limit(max_requests=15, window_seconds=60)
 def clubs_challenge(club_id):
     data = request.get_json(silent=True) or {}
     username = session.get('username') or str(data.get('username', '')).strip()
@@ -729,6 +934,8 @@ def clubs_challenge(club_id):
         return jsonify({"error": "Não autenticado."}), 401
 
     with get_db() as conn:
+        if not google_account_is_linked(conn, username):
+            return jsonify({"error": "Para jogar online, conecte uma conta Google ao seu perfil."}), 403
         member = conn.execute("SELECT 1 FROM club_members WHERE club_id = ? AND username = ?", (club_id, username)).fetchone()
         if not member:
             return jsonify({"error": "Você precisa ser membro do clube para criar desafios."}), 403
@@ -743,6 +950,7 @@ def clubs_challenge(club_id):
     return jsonify({"success": True, "challenge_id": cid})
 
 @social_bp.route('/clubs/<int:club_id>/accept_challenge', methods=['POST'])
+@rate_limit(max_requests=15, window_seconds=60)
 def clubs_accept_challenge(club_id):
     data = request.get_json(silent=True) or {}
     username = session.get('username') or str(data.get('username', '')).strip()
@@ -752,6 +960,8 @@ def clubs_accept_challenge(club_id):
         return jsonify({"error": "Dados inválidos."}), 400
 
     with get_db() as conn:
+        if not google_account_is_linked(conn, username):
+            return jsonify({"error": "Para jogar online, conecte uma conta Google ao seu perfil."}), 403
         member = conn.execute("SELECT 1 FROM club_members WHERE club_id = ? AND username = ?", (club_id, username)).fetchone()
         if not member:
             return jsonify({"error": "Você precisa ser membro do clube para aceitar desafios."}), 403
@@ -762,6 +972,8 @@ def clubs_accept_challenge(club_id):
         ).fetchone()
         if not ch:
             return jsonify({"error": "Desafio não encontrado."}), 404
+        if not google_account_is_linked(conn, ch['creator']):
+            return jsonify({"error": "Para jogar online, os dois jogadores precisam vincular uma conta Google."}), 403
 
         creator = ch['creator']
         time_control = ch['time_control']
@@ -796,6 +1008,7 @@ def clubs_accept_challenge(club_id):
     return jsonify({"success": True, "game_id": game_id, "white_user": white_user, "black_user": black_user})
 
 @social_bp.route('/clubs/<int:club_id>/leave', methods=['POST'])
+@rate_limit(max_requests=15, window_seconds=60)
 def clubs_leave(club_id):
     data = request.get_json(silent=True) or {}
     username = session.get('username') or str(data.get('username', '')).strip()

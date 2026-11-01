@@ -6,9 +6,9 @@
 2. Copie `.env.example` para `.env` e gere `SECRET_KEY` com `openssl rand -hex 32`.
 3. Para o login Google local, crie um OAuth Client do tipo Web no Google Cloud Console e cadastre `http://127.0.0.1:5000/auth/google/callback` como URI de redirecionamento.
 4. Defina `GOOGLE_CLIENT_ID` e `GOOGLE_CLIENT_SECRET` no ambiente; mantenha `COOKIE_SECURE=false` em HTTP local.
-5. Inicie `python xadrez.py` ou `gunicorn --workers 1 --threads 4 --bind 0.0.0.0:5000 xadrez:app` e abra `http://127.0.0.1:5000`.
+5. Inicie `python app.py` ou `gunicorn --workers 1 --threads 4 --bind 127.0.0.1:5000 app:app` e abra `http://127.0.0.1:5000`.
 
-O servidor local fica disponível na rede local pela porta 5000, mas isso não o torna acessível pela internet quando o computador está desligado. Não exponha a porta diretamente à internet.
+O comando local liga o servidor somente em `127.0.0.1:5000`, acessível neste computador. Não exponha a porta diretamente à internet; para uma demonstração na rede local, configure explicitamente um host apropriado e use uma rede confiável.
 
 ## Login Google
 
@@ -18,9 +18,30 @@ O botão Google só aparece quando as duas credenciais estão definidas. Jogador
 
 Nunca publique `.env`, Client Secret ou `SECRET_KEY`. Se uma chave real for exposta, revogue-a no Google Cloud Console e gere outra.
 
+## Banco de dados persistente (PostgreSQL) — leia antes de publicar
+
+Contêineres gratuitos (Render Free) **apagam arquivos locais** quando o serviço dorme ou reinicia. Por isso o app suporta PostgreSQL externo:
+
+- Com `DATABASE_URL` definida, **todos** os dados (contas, ratings, partidas em andamento, clubes, presentes...) ficam no PostgreSQL e sobrevivem a reinícios.
+- Sem `DATABASE_URL`, o app usa SQLite local (bom para desenvolver no computador).
+
+Passo a passo (Neon, gratuito; Supabase funciona igual):
+
+1. Crie o projeto em https://neon.tech e copie a *connection string* (`postgresql://usuario:senha@host/banco?sslmode=require`).
+2. No Render: *Environment* → adicione `DATABASE_URL` com essa string (e `GOOGLE_CLIENT_ID`/`GOOGLE_CLIENT_SECRET`). A `SECRET_KEY` é gerada uma vez pelo `render.yaml` e permanece estável (mantém as sessões entre reinícios).
+3. No primeiro start o app cria as tabelas sozinho.
+4. Para levar os dados atuais do SQLite: no seu computador, `DATABASE_URL='postgresql://...' python3 tools/migrate_sqlite_to_postgres.py capybara.db`. O script não altera o arquivo SQLite e pode ser repetido.
+5. Teste: `DATABASE_URL=... python3 tests/smoke_api.py` (use um banco descartável; ele cria contas `smoke_*`).
+
+Como o progresso é preservado:
+
+- **Servidor/banco:** nada fica só na RAM. Partidas em andamento estão na tabela `games`; o app grava um *heartbeat* a cada 15 s e, ao religar depois de uma pausa, **congela os relógios** das partidas ativas pelo tempo em que ficou desligado (`freeze_clocks_after_downtime`). Assim cada partida volta exatamente ao ponto em que o último jogador a deixou.
+- **Navegador:** ao abrir o jogo (ou quando a internet volta) o app consulta `/game/active` e retoma a partida. Partidas contra bots oficiais/extras também são copiadas no `localStorage`; se o servidor perder os dados, `/game/restore` recria a partida (validada, sem alterar rating/moedas/missões/selos).
+- **Limites:** o limitador de requisições e o bloqueio de login ficam em memória e zeram ao reiniciar (por segurança isso é aceitável). No plano gratuito do Neon o banco pode "acordar" em ~1 s na primeira consulta.
+
 ## Hospedagem gratuita
 
-O app agora tem um entry point WSGI (`xadrez:app`), `Procfile` e um exemplo para PythonAnywhere em `deployment/pythonanywhere_wsgi.py`. PythonAnywhere oferece um plano gratuito com WSGI e arquivos no diretório do usuário; confirme os limites vigentes e se o plano permite os endpoints OAuth do Google e executar o binário Stockfish (`/usr/games/stockfish` ou `stockfish` no `PATH`). O pacote Python `stockfish` sozinho não instala o executável da engine.
+O app usa `app:app` como entry point WSGI profissional; `xadrez:app` continua disponível para compatibilidade, assim como o exemplo para PythonAnywhere em `deployment/pythonanywhere_wsgi.py`. PythonAnywhere oferece um plano gratuito com WSGI e arquivos no diretório do usuário; confirme os limites vigentes e se o plano permite os endpoints OAuth do Google e executar o binário Stockfish (`/usr/games/stockfish` ou `stockfish` no `PATH`). O pacote Python `stockfish` sozinho não instala o executável da engine. Consulte [ARCHITECTURE.md](./ARCHITECTURE.md) para orientação de manutenção.
 
 Passos para publicar esse exemplo:
 
@@ -32,7 +53,7 @@ Passos para publicar esse exemplo:
 
 O Google Cloud pode exigir configuração de consentimento, domínios autorizados e, para usuários fora da lista de teste, publicação/verificação do aplicativo. Esses passos dependem da conta Google do proprietário e não podem ser concluídos neste workspace.
 
-A conta e o jogo usam SQLite. Para manter contas e progresso, configure `DATABASE_PATH` em armazenamento persistente e faça backups regulares. O Render Free deste projeto usa `/tmp/capybara.db` para testes online sem custo de disco; o arquivo pode ser apagado em reinicializações ou novos deploys, então não use esse ambiente como armazenamento durável. O serviço instala Stockfish por Docker e executa bots nesse plano.
+Sem `DATABASE_URL` o jogo usa SQLite (`DATABASE_PATH`); nesse modo o Render Free usa `/tmp/capybara.db`, que é apagado em reinícios. **Em produção configure `DATABASE_URL` (seção acima).** O serviço instala Stockfish por Docker e executa bots nesse plano.
 
 ### Verificações de produção
 

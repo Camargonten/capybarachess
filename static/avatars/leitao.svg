@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+  <defs><radialGradient id="bg_leitao" cx="50%" cy="30%" r="70%"><stop offset="0%" stop-color="#fb7185"/><stop offset="100%" stop-color="#7f1d1d"/></radialGradient></defs>
+  <rect width="100" height="100" fill="url(#bg_leitao)"/>
+  <path d="M20 100 L32 66 L68 66 L80 100 Z" fill="#7c2d12"/><path d="M44 66 L50 80 L56 66 Z" fill="#fb7185"/>
+  <circle cx="31" cy="30" r="8" fill="#f9a8d4"/><circle cx="69" cy="30" r="8" fill="#f9a8d4"/><circle cx="50" cy="46" r="22" fill="#f9a8d4" stroke="#be185d55" stroke-width="2"/><ellipse cx="50" cy="54" rx="10" ry="7.5" fill="#f472b6"/><circle cx="46" cy="54" r="1.8" fill="#9d174d"/><circle cx="54" cy="54" r="1.8" fill="#9d174d"/><circle cx="42" cy="42" r="2.6" fill="#18181b"/><circle cx="58" cy="42" r="2.6" fill="#18181b"/><rect x="28" y="31" width="44" height="6" rx="2" fill="#dc2626"/><path d="M72 34 L82 28 M72 34 L83 38" stroke="#dc2626" stroke-width="3"/>
+  
+</svg>

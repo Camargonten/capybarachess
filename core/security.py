@@ -1,6 +1,8 @@
 import re
+import sqlite3
 import time
 import logging
+from urllib.parse import urlsplit
 from threading import Lock
 from functools import wraps
 from flask import request, jsonify
@@ -41,11 +43,77 @@ class InMemoryRateLimiter:
 
 limiter = InMemoryRateLimiter()
 
+
+class LoginThrottle:
+    """Bloqueio temporário após falhas de login (força bruta).
+
+    Conta falhas por (IP, usuário) e por usuário. Em memória; para vários servidores
+    troque por Redis mantendo a mesma interface.
+    """
+    PER_IP_USER_LIMIT = 5
+    PER_USER_LIMIT = 20
+    WINDOW_SECONDS = 15 * 60
+
+    def __init__(self):
+        self._failures = {}
+        self._lock = Lock()
+
+    @staticmethod
+    def _keys(ip: str, username: str):
+        name = username.strip().lower()
+        return (f"ipu:{ip}:{name}", f"u:{name}")
+
+    def _recent(self, key: str, now: float):
+        recent = [t for t in self._failures.get(key, []) if t > now - self.WINDOW_SECONDS]
+        if recent:
+            self._failures[key] = recent
+        else:
+            self._failures.pop(key, None)
+        return recent
+
+    def is_blocked(self, ip: str, username: str) -> bool:
+        now = time.time()
+        ip_user_key, user_key = self._keys(ip, username)
+        with self._lock:
+            return (len(self._recent(ip_user_key, now)) >= self.PER_IP_USER_LIMIT
+                    or len(self._recent(user_key, now)) >= self.PER_USER_LIMIT)
+
+    def record_failure(self, ip: str, username: str) -> None:
+        now = time.time()
+        with self._lock:
+            if len(self._failures) > 20000:
+                self._failures = {k: v for k, v in self._failures.items() if v and v[-1] > now - self.WINDOW_SECONDS}
+            for key in self._keys(ip, username):
+                self._failures.setdefault(key, []).append(now)
+
+    def reset(self, ip: str, username: str) -> None:
+        with self._lock:
+            self._failures.pop(self._keys(ip, username)[0], None)
+
+
+login_throttle = LoginThrottle()
+
+def same_origin_guard():
+    if request.method in {'GET', 'HEAD', 'OPTIONS'}:
+        return None
+    if request.headers.get('Sec-Fetch-Site', '').lower() == 'cross-site':
+        return jsonify({"error": "Requisição entre sites bloqueada."}), 403
+    origin = request.headers.get('Origin')
+    if not origin:
+        return None
+    try:
+        parsed_origin = urlsplit(origin)
+    except ValueError:
+        return jsonify({"error": "Origem da requisição inválida."}), 403
+    if parsed_origin.scheme not in {'http', 'https'} or parsed_origin.netloc.lower() != request.host.lower():
+        return jsonify({"error": "Origem da requisição inválida."}), 403
+    return None
+
 def rate_limit(max_requests: int, window_seconds: int = 60):
     def decorator(f):
         @wraps(f)
         def decorated_function(*args, **kwargs):
-            ip = request.headers.get('X-Forwarded-For', request.remote_addr or 'unknown').split(',')[0].strip()
+            ip = request.remote_addr or 'unknown'
             key = f"{ip}:{request.endpoint}"
             if not limiter.is_allowed(key, max_requests, window_seconds):
                 logger.warning(f"Rate limit exceeded for {key}")
@@ -67,6 +135,7 @@ def apply_security_headers(response):
         "img-src 'self' data: https:; "
         "font-src 'self' data:; "
         "connect-src 'self'; "
+        "worker-src 'self' blob:; "
         "frame-ancestors 'none';"
     )
     response.headers['Content-Security-Policy'] = csp
@@ -74,12 +143,24 @@ def apply_security_headers(response):
     response.headers['X-Content-Type-Options'] = 'nosniff'
     response.headers['Referrer-Policy'] = 'strict-origin-when-cross-origin'
     response.headers['Permissions-Policy'] = 'geolocation=(), camera=(), microphone=()'
+    response.headers['Cross-Origin-Opener-Policy'] = 'same-origin-allow-popups'
+    response.headers['Server'] = 'Capybara'
+    if request.is_secure or request.headers.get('X-Forwarded-Proto', '').lower() == 'https':
+        response.headers['Strict-Transport-Security'] = 'max-age=31536000; includeSubDomains'
     return response
 
 def validate_username(username: str) -> bool:
     if not isinstance(username, str) or len(username) < 3 or len(username) > 25:
         return False
-    return re.fullmatch(r'[A-Za-z0-9_ -]+', username) is not None
+    if username != username.strip() or '  ' in username:
+        return False
+    return re.fullmatch(r'[\w .-]+', username) is not None
+
+def google_account_is_linked(conn: sqlite3.Connection, username: str) -> bool:
+    return conn.execute(
+        "SELECT 1 FROM users WHERE username = ? AND google_sub IS NOT NULL",
+        (username,)
+    ).fetchone() is not None
 
 def parse_bounded_integer(value, minimum: int, maximum: int) -> int | None:
     if isinstance(value, bool):

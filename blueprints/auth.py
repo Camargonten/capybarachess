@@ -1,13 +1,15 @@
+import hmac
 import os
-import re
 import secrets
+import sqlite3
 from flask import Blueprint, jsonify, request, session, redirect, url_for
 from werkzeug.security import check_password_hash, generate_password_hash
-from core.db import get_db
+from core.db import IntegrityError, get_db
 from core.config import GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET, ADMIN_USERS
-from core.security import rate_limit, validate_username
+from core.security import login_throttle, rate_limit, validate_username
 
 auth_bp = Blueprint('auth', __name__)
+DUMMY_PASSWORD_HASH = generate_password_hash(secrets.token_hex(16))
 
 def is_user_admin(username: str) -> bool:
     if not username:
@@ -21,7 +23,7 @@ def is_user_admin(username: str) -> bool:
 def build_auth_payload(username: str):
     with get_db() as conn:
         user = conn.execute("""
-                 SELECT id, username, display_name, display_name_changes, bio, coins, rating, inventory, calibrated, avatar, google_email, is_admin,
+                 SELECT id, username, display_name, display_name_changes, bio, coins, rating, inventory, calibrated, avatar, google_sub, google_email, country_code, country_locked, is_admin,
                      active_frame, active_banner, active_piece_skin, calibration_games, colorblind_mode, skip_animation, bgm_choice
             FROM users WHERE username = ?
         """, (username,)).fetchone()
@@ -49,8 +51,10 @@ def build_auth_payload(username: str):
             "calibration_games": cal_games,
             "calibrated": bool(user['calibrated']),
             "avatar": user['avatar'] or '',
-            "google_linked": bool(user['google_email']),
+            "google_linked": bool(user['google_sub']),
             "google_email": user['google_email'] or '',
+            "country_code": user['country_code'] or '',
+            "country_locked": bool(user['country_locked']),
             "is_admin": bool(user['is_admin'] or is_user_admin(username)),
             "active_frame": user['active_frame'] or '',
             "active_banner": user['active_banner'] or '',
@@ -68,21 +72,25 @@ def register():
     password = str(data.get('password', ''))
     
     if not validate_username(username):
-        return jsonify({"error": "Nome de usuário deve ter entre 3 e 25 caracteres alfanuméricos."}), 400
-    if len(password) < 7:
-        return jsonify({"error": "A senha deve ter pelo menos 7 caracteres."}), 400
+        return jsonify({"error": "O nome de usuário deve ter de 3 a 25 caracteres (letras, números, espaço, _ - ou .)."}), 400
+    if (
+        len(password) < 7
+        or len(password) > 128
+        or not any(not character.isalnum() and not character.isspace() for character in password)
+    ):
+        return jsonify({
+            "error": "A senha deve ter de 7 a 128 caracteres e incluir pelo menos um símbolo."
+        }), 400
         
     pwd_hash = generate_password_hash(password)
     try:
         with get_db() as conn:
             cursor = conn.cursor()
-            user_count = cursor.execute("SELECT COUNT(*) as cnt FROM users").fetchone()['cnt']
-            is_first_user = (user_count == 0)
-            initial_coins = 8000 if is_first_user else 100
-            initial_is_admin = 1 if is_first_user else 0
+            initial_coins = 100
+            initial_is_admin = 0
 
             cursor.execute(
-                "INSERT INTO users (username, password, coins, rating, is_admin) VALUES (?, ?, ?, 1200, ?)",
+                "INSERT INTO users (username, password, coins, rating, is_admin, country_code, country_locked) VALUES (?, ?, ?, 1200, ?, '', 0)",
                 (username, pwd_hash, initial_coins, initial_is_admin)
             )
             user_id = cursor.lastrowid
@@ -96,8 +104,8 @@ def register():
             "username": username,
             "is_admin": bool(initial_is_admin)
         })
-    except Exception:
-        return jsonify({"error": "Nome de usuário já está em uso."}), 400
+    except IntegrityError:
+        return jsonify({"error": "Nome de usuário já está em uso."}), 409
 
 @auth_bp.route('/login', methods=['POST'])
 @rate_limit(max_requests=10, window_seconds=60)
@@ -109,18 +117,27 @@ def login():
     if not username or not password:
         return jsonify({"error": "Nick ou senha incorretos."}), 401
 
+    client_ip = request.remote_addr or 'unknown'
+    if login_throttle.is_blocked(client_ip, username):
+        return jsonify({"error": "Muitas tentativas de login. Aguarde alguns minutos e tente de novo."}), 429
+
     with get_db() as conn:
         user = conn.execute(
             "SELECT id, password, coins, rating, inventory, calibrated, avatar FROM users WHERE username = ?",
             (username,)
         ).fetchone()
         if not user:
+            # Hash de mentira: o tempo de resposta não revela se o nick existe.
+            check_password_hash(DUMMY_PASSWORD_HASH, password)
+            login_throttle.record_failure(client_ip, username)
             return jsonify({"error": "Nick ou senha incorretos."}), 401
 
         stored_password = user['password']
-        valid_password = check_password_hash(stored_password, password) if stored_password.startswith(('pbkdf2:', 'scrypt:')) else stored_password == password
+        valid_password = check_password_hash(stored_password, password) if stored_password.startswith(('pbkdf2:', 'scrypt:')) else hmac.compare_digest(stored_password.encode(), password.encode())
         if not valid_password:
+            login_throttle.record_failure(client_ip, username)
             return jsonify({"error": "Nick ou senha incorretos."}), 401
+        login_throttle.reset(client_ip, username)
 
         if not stored_password.startswith(('pbkdf2:', 'scrypt:')):
             conn.execute("UPDATE users SET password = ? WHERE id = ?", (generate_password_hash(password), user['id']))

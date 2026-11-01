@@ -48,9 +48,10 @@ A sessão Flask identifica o usuário autenticado. Endpoints de escrita devem de
 
 1. No primeiro acesso, o Guia da Capivara restringe a navegação às seções indicadas. Cada etapa exige abrir seu destino; o tutorial pode ser dispensado pelo botão explícito “Pular tutorial”. Progresso e conclusão ficam no armazenamento local por conta.
 2. Após a calibração, o modo Clássico escolhe bots do catálogo individual cujo rating é próximo do rating clássico do jogador. O rating clássico é atualizado no servidor a partir do resultado final da partida e permanece separado do rating FIDE global.
-3. O modo Rankeado usa fila PvP persistida em SQLite. Jogadores calibrados com o mesmo ritmo são pareados pelo rating e a faixa de busca aumenta gradualmente enquanto aguardam.
-4. A entrada direta em partida ranqueada também exige calibração. Desafios por link direto são casuais e não alteram rating.
-5. A fila depende do mesmo SQLite usado pelo aplicativo. No Render Free de teste, `DATABASE_PATH=/tmp/capybara.db`; fila e contas podem se perder com o filesystem efêmero.
+3. O modo Rankeado usa fila PvP persistida em SQLite. Jogadores calibrados com o mesmo ritmo precisam aceitar reciprocamente o rating do adversário dentro das faixas configuradas. Com teto finito, escolhe-se o rating elegível mais próximo e a antiguidade desempata; com teto infinito, escolhe-se o jogador elegível mais antigo da fila, preservando o mínimo escolhido e sem ampliar a faixa automaticamente.
+4. No Bermuda, a faixa mínima e máxima selecionada é respeitada. Com teto infinito, o bot escolhido é o elegível mais próximo do rating do jogador; a busca não recorre a bots fora da faixa.
+5. A entrada direta em partida ranqueada também exige calibração. Desafios por link direto são casuais e não alteram rating.
+6. A fila depende do mesmo SQLite usado pelo aplicativo. No Render Free de teste, `DATABASE_PATH=/tmp/capybara.db`; fila e contas podem se perder com o filesystem efêmero.
 
 ### Força e tempo de pensamento dos bots
 

@@ -29,3 +29,7 @@ include/
 *.log
 .DS_Store
 
+
+# Backups gerados por atualizações
+*.bak*
+backup_atualizar_*/

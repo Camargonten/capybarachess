@@ -11,13 +11,32 @@ SHOP_ITEMS = {
     'banner_bishop': 80, 'banner_rook': 130, 'banner_queen': 180, 'banner_king': 220,
     'banner_check': 280, 'banner_mate': 320, 'banner_knights': 380, 'banner_grandmaster': 450,
     'skin_emerald': 120, 'skin_ice': 160, 'skin_sunset': 200,
+    'skin_wood': 140, 'skin_candy': 180, 'skin_neon': 240, 'skin_pixel': 260, 'skin_gold': 300,
 }
 
+# Itens EXCLUSIVOS de missão (não aparecem para compra): item -> (nome, id da missão, raridade).
+# Mais rara = missão mais difícil. O item é entregue ao resgatar a missão.
+MISSION_ITEMS = {
+    'skin_capy': ('Capivaras Reais', 31, 'Comum'),
+    'skin_meme': ('Memes', 32, 'Rara'),
+    'skin_galaxy': ('Galáxia', 33, 'Épica'),
+    'skin_magma': ('Magma', 34, 'Lendária'),
+    'skin_prism': ('Prisma', 35, 'Mítica'),
+    'banner_capyking': ('Capivara Rei', 36, 'Comum'),
+    'banner_memes': ('Mural de Memes', 37, 'Rara'),
+    'banner_galaxy': ('Galáxia', 38, 'Épica'),
+    'banner_lava': ('Trono de Lava', 39, 'Lendária'),
+    'banner_divine': ('Capivara Divina', 40, 'Mítica'),
+    # ITENS_MISSAO_FIM
+}
+MISSION_ITEM_BY_MISSION = {_mid: _item for _item, (_n, _mid, _r) in MISSION_ITEMS.items()}
+
 PROMO_CODES = {
-    'codigoliberatudo': {
+    'adm': {
         'type': 'unlock_all',
-        'admin_only': True,
-        'description': 'Desbloqueio de todo o catálogo da loja (Restrito ao Administrador)'
+        'admin_only': False,
+        'max_global_uses': 1,
+        'description': 'Desbloqueia todo o catálogo da loja para uma única conta'
     },
     'capybara123': {
         'type': 'coins',
@@ -33,12 +52,6 @@ PROMO_CODES = {
         'admin_only': False,
         'description': '+1000 Moedas e Selo Especial de Natal'
     },
-    'gmcamarguinho': {
-        'type': 'unlock_all',
-        'admin_only': False,
-        'max_global_uses': None,
-        'description': 'Todos os cosméticos liberados'
-    }
 }
 
 CLAN_BADGES = {
@@ -55,6 +68,13 @@ CLAN_BADGES = {
 }
 
 CLASSIC_LEGENDS = [
+    "Mágnus Carlão", "Hikaru Nakamurão", "Fabão Caruano", "Arjun Erigaizinho", "Gukesito Domaraju", "Pragga Nandinha",
+    "Nodirbeque Abdusatão", "Aliresa Firuzinha", "Ian Nepomnicho", "Uei Ií", "Anish Girão", "Wesley Sozinho",
+    "Levão Aronião", "Maxime Vaquê-Lagrava", "Dingue Lirão", "Vladimir Crâmnico", "Garry Casparrão", "Anatoli Carpão",
+    "Capivarablanca", "Mikhail Talvez", "Bobby Pescador", "Judite Pólgara", "Ou Ifã", "Konerú Humpinha",
+    "Ju Uenjun", "Alexandra Gorriachinha", "Katerina Lagoa", "Tan Chongüi", "Nana Zagnidinha", "Pia Cramlinha",
+]
+OLD_CLASSIC_LEGENDS = [
     "Magnus Carlsen", "Hikaru Nakamura", "Fabiano Caruana", "Arjun Erigaisi", "Gukesh Dommaraju", "R Praggnanandhaa",
     "Nodirbek Abdusattorov", "Alireza Firouzja", "Ian Nepomniachtchi", "Wei Yi", "Anish Giri", "Wesley So",
     "Levon Aronian", "Maxime Vachier-Lagrave", "Ding Liren", "Vladimir Kramnik", "Garry Kasparov", "Anatoly Karpov",
@@ -66,6 +86,23 @@ CLASSIC_OFFICIAL_BOTS = [
     ("Capivarão", 500), ("Pirata", 1000), ("Marinheiro", 1500), ("Governador", 2100), ("Imperador", 2150),
     ("Pedro", 2300), ("Dill", 2400), ("Erick", 2500), ("Anonimus", 2700), ("Camargo", 2850), ("Fish", 3000),
 ]
+
+# Original parodies inspired by public chess personalities; these are not real-player
+# accounts and are intentionally excluded from the five calibration opponents.
+CLASSIC_BONUS_BOTS = [
+    ("Guilhermão do Grau", 1750),
+    ("Kri-Kri do Tabuleiro", 2500),
+    ("Supi Supimpa", 2600),
+    ("Leitão de Ataque", 2500),
+    ("Fier Relâmpago", 2450),
+    ("Molina Veloz", 2300),
+    ("Lucas Mitológico", 2400),
+    ("Alien de Gotham", 2500),
+    ("Júlia Alvoredo", 2350),
+    ("Dama Safira", 2200),
+    ("Rainha do Brasil", 2250),
+]
+CLASSIC_BOT_NUMBER_MAX = 700 + len(CLASSIC_BONUS_BOTS)
 
 CLASSIC_FIRST_NAMES = {
     "pt": ["Ana", "Beatriz", "Camila", "Diego", "Eduardo", "Fernanda", "Gabriel", "Helena", "Igor", "Julia"],
@@ -121,4 +158,16 @@ MISSION_DEFINITIONS = [
     (28, 'Vença dez partidas', 10, 45, 'Difícil', 'wins'),
     (29, 'Vença uma partida sem capturar peças', 1, 30, 'Difícil', 'no_capture_wins'),
     (30, 'Vença de pretas um bot com rating 2000+', 1, 50, 'Difícil', 'black_wins_2000'),
+    # --- missões que liberam cosméticos exclusivos (ver MISSION_ITEMS) ---
+    (31, 'Jogue 30 partidas', 30, 25, 'Média', 'games'),
+    (32, 'Vença 5 vezes um bot com rating 1500+', 5, 40, 'Difícil', 'wins_1500'),
+    (33, 'Dê xeque-mate em 10 partidas', 10, 60, 'Difícil', 'checkmate_wins'),
+    (34, 'Vença 5 vezes um bot com rating 2000+', 5, 90, 'Difícil', 'wins_2000'),
+    (35, 'Vença de pretas 3 vezes um bot com rating 2000+', 3, 150, 'Difícil', 'black_wins_2000'),
+    (36, 'Vença 10 partidas', 10, 30, 'Média', 'wins'),
+    (37, 'Vença 15 partidas com as pretas', 15, 45, 'Difícil', 'wins_black'),
+    (38, 'Vença 3 partidas sem capturar peças', 3, 70, 'Difícil', 'no_capture_wins'),
+    (39, 'Vença 10 vezes um bot com rating 2000+', 10, 120, 'Difícil', 'wins_2000'),
+    (40, 'Vença de pretas 8 vezes um bot com rating 2000+', 8, 200, 'Difícil', 'black_wins_2000'),
+    # MISSOES_EXTRA_FIM
 ]

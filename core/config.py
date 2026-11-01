@@ -16,8 +16,16 @@ if APP_ENV == 'production' and not SECRET_KEY:
     raise RuntimeError('FATAL: SECRET_KEY precisa ser configurada no ambiente de produção.')
 SECRET_KEY = SECRET_KEY or secrets.token_hex(32)
 
+# Banco persistente (PostgreSQL: Neon, Supabase, Render Postgres...). Sem DATABASE_URL o app usa SQLite local.
+DATABASE_URL = os.environ.get('DATABASE_URL', '').strip()
+USING_POSTGRES = DATABASE_URL.lower().startswith(('postgres://', 'postgresql://'))
+if DATABASE_URL and not USING_POSTGRES:
+    raise RuntimeError('DATABASE_URL deve começar com postgres:// ou postgresql://')
+
 DATABASE_PATH = os.environ.get('DATABASE_PATH', os.path.join(BASE_DIR, 'capybara.db'))
-if APP_ENV == 'production':
+if APP_ENV == 'production' and USING_POSTGRES:
+    pass  # os dados ficam no PostgreSQL; DATABASE_PATH não é usado
+elif APP_ENV == 'production':
     configured_database_path = os.environ.get('DATABASE_PATH')
     if not configured_database_path or not os.path.isabs(configured_database_path):
         raise RuntimeError('DATABASE_PATH deve apontar para um caminho absoluto.')
@@ -38,6 +46,9 @@ if APP_ENV == 'production':
             warnings.warn('DATABASE_PATH não é gravável no Render; usando /tmp/capybara.db.', RuntimeWarning)
         else:
             raise RuntimeError('O diretório configurado em DATABASE_PATH não permite escrita.')
+if APP_ENV == 'production' and not USING_POSTGRES:
+    warnings.warn('DATABASE_URL não definida: usando SQLite local. Em hospedagem com disco efêmero (Render Free) '
+                  'os dados serão APAGADOS a cada reinício. Configure um PostgreSQL externo (veja DEPLOY.md).', RuntimeWarning)
 COOKIE_SECURE = os.environ.get('COOKIE_SECURE', str(APP_ENV == 'production')).lower() == 'true'
 
 def resolve_stockfish_candidates(configured_path: str | None = None) -> tuple[str, ...]:
