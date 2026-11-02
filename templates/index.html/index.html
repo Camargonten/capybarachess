@@ -352,7 +352,7 @@
                     <button id="notifications-toggle" onclick="toggleNotifications()" aria-label="Notificações" title="Notificações" class="relative bg-slate-900 border border-slate-700 px-2.5 py-1.5 rounded-lg text-sm">
                         <span aria-hidden="true">🔔</span><span id="notifications-count" class="hidden absolute -right-1 -top-1 min-w-4 rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">0</span>
                     </button>
-                    <div id="notifications-panel" class="hidden absolute right-0 z-40 mt-2 w-72 max-w-[90vw] rounded-lg border border-slate-700 bg-slate-900 p-3 shadow-xl">
+                    <div id="notifications-panel" class="hidden fixed inset-x-3 top-16 z-40 max-h-[75vh] overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 p-3 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-72 sm:max-h-none sm:overflow-visible">
                         <div class="mb-2 flex items-center justify-between"><strong class="text-xs text-amber-300">Notificações</strong><button onclick="refreshNotifications()" title="Atualizar notificações" class="text-xs text-slate-400 hover:text-white">↻</button></div>
                         <div id="notifications-list" class="flex max-h-72 flex-col gap-2 text-xs"><span class="text-slate-400">Carregando...</span></div>
                     </div>
@@ -427,9 +427,15 @@
                         <option value="180,2">Blitz 3+2 (padrão)</option>
                         <option value="60,0">Bullet 1+0</option>
                         <option value="60,1">Bullet 1+1</option>
+                        <option value="120,0">Bullet 2+0</option>
+                        <option value="120,1">Bullet 2+1</option>
                         <option value="180,0">Blitz 3+0</option>
+                        <option value="300,0">Blitz 5+0</option>
                         <option value="600,0">Rápida 10+0</option>
                         <option value="600,3">Rápida 10+3</option>
+                        <option value="600,5">Rápida 10+5</option>
+                        <option value="1800,0">Clássica 30+0</option>
+                        <option value="1800,30">Clássica 30+30</option>
                         <option value="random">Ritmo aleatório</option>
                     </select>
                     <button id="time-picker" onclick="toggleChoiceMenu('time')" class="bg-slate-900 border border-slate-700 hover:border-amber-400 p-2 rounded-lg text-sm text-left">Blitz 3+2 (padrão) v</button>
@@ -1307,6 +1313,9 @@
         let playerTime = 180;
         let opponentTime = 180;
         let increment = 2;
+        let clockEnabled = true;     // false em partida sem relógio (tempo ilimitado)
+        let clockAnchorAt = 0;       // performance.now() da última sincronização do relógio
+        let lastTimeoutClaimAt = 0;
         let botThinking = false;
         let matchActive = false;
         let authIsLogin = false;
@@ -2649,7 +2658,10 @@
         }
 
         function selectTime(value, label) {
-            document.getElementById('select-time').value = value;
+            const timeSelect = document.getElementById('select-time');
+            // Um valor que não está no <select> viraria '' e o ritmo escolhido seria ignorado em silêncio.
+            if (!Array.from(timeSelect.options).some(option => option.value === value)) timeSelect.add(new Option(label, value));
+            timeSelect.value = value;
             document.getElementById('time-picker').innerText = `${label} v`;
             document.getElementById('time-menu').classList.add('hidden');
         }
@@ -4207,8 +4219,8 @@
                     const rankingEntries = data.bots.map(bot => ({ ...bot, isPlayer: false }));
                     const playerRank = Math.max(1, Math.min(rankingEntries.length + 1, Number(data.player.rank) || 1));
                     const playerName = userData.display_name || data.player.name;
-                    const playerAvatar = userData.avatar
-                        ? `<img src="${escapeHtml(userData.avatar)}" class="w-7 h-7 rounded-full shrink-0 border border-amber-400 object-cover" alt="${escapeHtml(playerName)}">`
+                    const playerAvatar = profileAvatar
+                        ? `<img src="${escapeHtml(profileAvatar)}" class="w-7 h-7 rounded-full shrink-0 border border-amber-400 object-cover" alt="${escapeHtml(playerName)}">`
                         : `<span class="w-7 h-7 rounded-full shrink-0 border border-amber-400 bg-slate-900 flex items-center justify-center text-amber-200 font-bold">${escapeHtml((playerName || '?').charAt(0).toUpperCase())}</span>`;
                     rankingEntries.splice(playerRank - 1, 0, {
                         name: playerName,
@@ -5112,9 +5124,9 @@
             stopBackgroundMusic();
 
             playerColorChoice = spectatorMode ? 'white' : (state.player_color || 'white');
-            playerTime = playerColorChoice === 'white' ? state.white_time : state.black_time;
-            opponentTime = playerColorChoice === 'white' ? state.black_time : state.white_time;
+            setClocks(playerColorChoice === 'white' ? state.white_time : state.black_time, playerColorChoice === 'white' ? state.black_time : state.white_time);
             increment = state.time_increment || 0;
+            clockEnabled = Number(state.time_initial) > 0;
 
             document.getElementById('lobby-screen').classList.add('hidden');
             document.getElementById('config-screen').classList.add('hidden');
@@ -5226,6 +5238,7 @@
                 draggable: !spectatorMode,
                 onDragStart: onDragStart,
                 onDrop: onDrop,
+                onSnapEnd: onSnapEnd,
                 moveSpeed: BOARD_MOVE_SPEED,
                 position: state.fen || 'start',
                 orientation: playerColorChoice,
@@ -5353,12 +5366,14 @@
         }
 
         function onDragStart(source, piece) {
-            clearSelectedSquare();
             if (spectatorMode || !matchActive || game.game_over() || lastBoardButton !== 0) return false;
+            // Peça do adversário: não inicia arrasto e MANTÉM a seleção, para o toque/clique seguinte concluir a captura
+            // (o touchstart chega antes do click; limpar aqui fazia a captura por toque nunca acontecer).
             if ((playerColorChoice === 'white' && piece.search(/^b/) !== -1) ||
                 (playerColorChoice === 'black' && piece.search(/^w/) !== -1)) {
                 return false;
             }
+            clearSelectedSquare();
             cancelPendingConfirm();
         }
 
@@ -5420,26 +5435,28 @@
         }
 
         // Ponto único de entrada para lances do jogador na sua vez (clique ou arrastar).
-        function requestPlayerMove(source, target) {
+        // Devolve true quando o lance foi enviado (o arrasto então fica na casa de destino) e false nos demais casos.
+        function requestPlayerMove(source, target, viaDrag = false) {
             const piece = game.get(source);
             const legal = game.moves({ square: source, verbose: true }).some(move => move.to === target);
             if (!piece || !legal) {
                 sfxIllegal();
                 showIllegalWarning("Lance ilegal!");
                 syncBoardPosition();
-                return;
+                return false;
             }
             const promotes = piece.type === 'p' && (target[1] === '8' || target[1] === '1');
             if (promotes) {
                 pendingPromotionMove = { source, target };
                 document.getElementById('promotion-modal').classList.remove('hidden');
-                return;
+                return false;
             }
             if (userData.confirm_moves) {
                 stageMoveForConfirmation(source + target);
-                return;
+                return false;
             }
-            sendGameMoveToServer(source + target);
+            sendGameMoveToServer(source + target, { viaDrag });
+            return true;
         }
 
         function onDrop(source, target) {
@@ -5454,8 +5471,14 @@
                 queuePremove(source, target);
                 return 'snapback';
             }
-            requestPlayerMove(source, target);
-            return 'snapback';
+            // Lance enviado: a peça fica onde foi solta (animação do chessboard.js). Devolver 'snapback' aqui
+            // fazia a peça voltar e depois andar de novo, o que deixava a captura travada.
+            return requestPlayerMove(source, target, true) ? undefined : 'snapback';
+        }
+
+        // Depois de soltar a peça, confere o tabuleiro com o jogo (roque, en passant) sem mexer nas demais peças.
+        function onSnapEnd() {
+            if (board && game) board.position(game.fen());
         }
 
         function resolveConfirmMove(confirmed) {
@@ -5477,12 +5500,13 @@
             sendGameMoveToServer(moveUci);
         }
 
-        function sendGameMoveToServer(moveUci) {
+        function sendGameMoveToServer(moveUci, { viaDrag = false } = {}) {
             if (spectatorMode) return;
             // Apply optimistically for responsive feedback, then reconcile with the server response.
             const promo = moveUci.length === 5 ? moveUci[4] : 'q';
             const from = moveUci.substring(0, 2);
             const to = moveUci.substring(2, 4);
+            advanceClocks(); // fecha o tempo gasto pensando antes de a vez passar para o adversário
             const localMove = game.move({ from, to, promotion: promo });
             if (!localMove) {
                 showIllegalWarning("Lance ilegal!");
@@ -5490,8 +5514,13 @@
                 return;
             }
 
+            // Incremento na hora (o servidor confirma na resposta); antes só aparecia depois do lance do bot.
+            if (clockEnabled) playerTime += increment;
+            updateClocks();
+
             // Render the player's move locally before waiting for the server response.
-            board.position(game.fen());
+            // Arrastando, a peça já está na casa de destino: reposicionar aqui sobreporia uma segunda animação.
+            if (!viaDrag) board.position(game.fen());
             playMoveSoundForSan(localMove.san);
             cleanBoardTooltips();
             const optimisticTurn = playerColorChoice === 'white' ? 'w' : 'b';
@@ -5520,8 +5549,7 @@
                 cleanBoardTooltips();
                 renderMoveHistoryTable(data.history);
 
-                playerTime = playerColorChoice === 'white' ? data.white_time : data.black_time;
-                opponentTime = playerColorChoice === 'white' ? data.black_time : data.white_time;
+                setClocks(playerColorChoice === 'white' ? data.white_time : data.black_time, playerColorChoice === 'white' ? data.black_time : data.white_time);
                 updateClocks();
 
                 if (data.bot_move) {
@@ -5560,8 +5588,7 @@
                     board.position(state.fen);
                     cleanBoardTooltips();
                     renderMoveHistoryTable(state.history);
-                    playerTime = playerColorChoice === 'white' ? state.white_time : state.black_time;
-                    opponentTime = playerColorChoice === 'white' ? state.black_time : state.white_time;
+                    setClocks(playerColorChoice === 'white' ? state.white_time : state.black_time, playerColorChoice === 'white' ? state.black_time : state.white_time);
                     updateClocks();
                     if (state.status !== 'active') {
                         handleGameOverState(state.winner, state.termination_reason, 0, state.rating_change || 0, state.new_rating, state.missions_completed || []);
@@ -5592,8 +5619,7 @@
                             renderMoveHistoryTable(state.history);
                         }
 
-                        playerTime = playerColorChoice === 'white' ? state.white_time : state.black_time;
-                        opponentTime = playerColorChoice === 'white' ? state.black_time : state.white_time;
+                        setClocks(playerColorChoice === 'white' ? state.white_time : state.black_time, playerColorChoice === 'white' ? state.black_time : state.white_time);
                         updateClocks();
 
                         if (state.status !== 'active') {
@@ -5789,24 +5815,36 @@
             setTimeout(() => overlay.classList.add('hidden'), 2800);
         }
 
+        // Relógio ancorado no tempo real (performance.now): o setInterval do celular atrasa e perdia segundos,
+        // então o mostrador desacertava do servidor. Assim ele acompanha o servidor e o incremento entra na hora.
+        function setClocks(mine, theirs) {
+            playerTime = Number(mine);
+            opponentTime = Number(theirs);
+            clockAnchorAt = performance.now();
+        }
+
+        function advanceClocks() {
+            const now = performance.now();
+            const elapsed = Math.max(0, (now - clockAnchorAt) / 1000);
+            clockAnchorAt = now;
+            if (!clockEnabled || !matchActive) return;
+            if (isMyTurnNow()) playerTime = Math.max(0, playerTime - elapsed);
+            else opponentTime = Math.max(0, opponentTime - elapsed);
+        }
+
         function startClocks() {
             clearInterval(timerInterval);
             if (spectatorMode) return;
+            clockAnchorAt = performance.now();
             timerInterval = setInterval(() => {
                 if (!matchActive) {
                     clearInterval(timerInterval);
                     return;
                 }
-                const myTurn = isMyTurnNow();
-                if (myTurn) {
-                    if (playerTime > 0) playerTime--;
-                    if (playerTime <= 0) checkTimeoutServer();
-                } else {
-                    if (opponentTime > 0) opponentTime--;
-                    if (opponentTime <= 0) checkTimeoutServer();
-                }
+                advanceClocks();
+                if (clockEnabled && (isMyTurnNow() ? playerTime : opponentTime) <= 0) checkTimeoutServer();
                 updateClocks();
-            }, 1000);
+            }, 100);
         }
 
         function formatTime(secs) {
@@ -5820,8 +5858,10 @@
             const oppClock = document.getElementById('clock-opponent');
             const myTurn = isMyTurnNow();
 
-            pClock.innerText = formatTime(Math.max(0, Math.ceil(playerTime)));
-            oppClock.innerText = formatTime(Math.max(0, Math.ceil(opponentTime)));
+            const playerText = formatTime(Math.max(0, Math.ceil(playerTime)));
+            const opponentText = formatTime(Math.max(0, Math.ceil(opponentTime)));
+            if (pClock.innerText !== playerText) pClock.innerText = playerText;
+            if (oppClock.innerText !== opponentText) oppClock.innerText = opponentText;
 
             pClock.classList.toggle('active-turn', myTurn);
             oppClock.classList.toggle('active-turn', !myTurn);
@@ -5837,7 +5877,10 @@
         let lastLowTimeTick = null;
 
         function checkTimeoutServer() {
-            if (!currentGameId) return;
+            if (!currentGameId || !clockEnabled) return;
+            const now = performance.now();
+            if (now - lastTimeoutClaimAt < 1500) return; // o relógio roda a cada 100 ms; não inundar o servidor
+            lastTimeoutClaimAt = now;
             fetch(`/game/${currentGameId}/claim_timeout`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -5954,8 +5997,7 @@
                         cleanBoardTooltips();
                         renderMoveHistoryTable(state.history);
                         if (typeof queuedPremoves !== 'undefined') queuedPremoves = [];
-                        playerTime = playerColorChoice === 'white' ? state.white_time : state.black_time;
-                        opponentTime = playerColorChoice === 'white' ? state.black_time : state.white_time;
+                        setClocks(playerColorChoice === 'white' ? state.white_time : state.black_time, playerColorChoice === 'white' ? state.black_time : state.white_time);
                         updateClocks();
                         playMoveSound(260, 0.15);
                         if (!isMyTurnNow()) startPvpPolling();
@@ -6218,8 +6260,14 @@
             preMatchBotNumber = optionBotNumber(botSelect.options[botSelect.selectedIndex], botSelect.selectedIndex);
             preMatchBotRating = Number(botSelect.value) || 500;
             preMatchColorChoice = document.getElementById('select-color').value || 'white';
-            const selectedTime = document.getElementById('select-time').value;
-            if (selectedTime && selectedTime !== 'random') preMatchTimeControl = selectedTime;
+            const timeSelect = document.getElementById('select-time');
+            const selectedTime = timeSelect.value;
+            if (selectedTime === 'random') {
+                const concrete = Array.from(timeSelect.options).map(option => option.value).filter(value => value !== 'random');
+                preMatchTimeControl = concrete[Math.floor(Math.random() * concrete.length)];
+            } else if (selectedTime) {
+                preMatchTimeControl = selectedTime;
+            }
             preMatchPlayType = 'bot';
             createBotGameSession();
         }

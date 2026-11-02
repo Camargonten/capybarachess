@@ -14,6 +14,17 @@ SHOP_ITEMS = {
     'skin_wood': 140, 'skin_candy': 180, 'skin_neon': 240, 'skin_pixel': 260, 'skin_gold': 300,
 }
 
+# Ritmos de jogo aceitos pelo servidor: "inicial,incremento" (segundos) -> (inicial, incremento).
+# Fonte única: criação de partida, fila rankeada, desafios, clubes e restauração leem esta tabela.
+# Para liberar um ritmo novo, acrescente aqui e o botão/opção correspondente em index.html.
+TIME_CONTROLS = {
+    '60,0': (60, 0), '60,1': (60, 1), '120,0': (120, 0), '120,1': (120, 1),
+    '180,0': (180, 0), '180,2': (180, 2), '300,0': (300, 0),
+    '600,0': (600, 0), '600,3': (600, 3), '600,5': (600, 5),
+    '900,10': (900, 10), '1800,0': (1800, 0), '1800,30': (1800, 30),
+}
+DEFAULT_TIME_CONTROL = '180,2'
+
 # Itens EXCLUSIVOS de missão (não aparecem para compra): item -> (nome, id da missão, raridade).
 # Mais rara = missão mais difícil. O item é entregue ao resgatar a missão.
 MISSION_ITEMS = {

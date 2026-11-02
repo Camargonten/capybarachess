@@ -54,7 +54,8 @@
 - Tests (run against an empty throwaway database, SQLite or PostgreSQL):
   `tests/smoke_api.py` (API sweep), `tests/test_persistence.py`,
   `tests/test_google_login.py` (OAuth callback logic with a mocked Google),
-  `tests/test_store_readiness.py` (legal pages, assetlinks, account deletion).
+  `tests/test_store_readiness.py` (legal pages, assetlinks, account deletion),
+  `tests/test_time_controls.py` (ranked/challenge time controls, clock increment and network grace).
 
 Back up the database before deployments or manual maintenance. Never edit
 production rows directly without a backup and a migration plan.

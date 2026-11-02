@@ -6,7 +6,7 @@ import time
 from flask import Blueprint, jsonify, request, session
 from werkzeug.security import generate_password_hash, check_password_hash
 from core.db import get_db, cleanup_ephemeral_sessions
-from core.constants import CLAN_BADGES, SHOP_ITEMS
+from core.constants import CLAN_BADGES, SHOP_ITEMS, TIME_CONTROLS, DEFAULT_TIME_CONTROL
 from core.security import rate_limit, parse_bounded_integer, google_account_is_linked
 
 social_bp = Blueprint('social', __name__)
@@ -224,13 +224,13 @@ def send_direct_challenge():
     sender = session.get('username')
     data = request.get_json(silent=True) or {}
     recipient = str(data.get('recipient', '')).strip()
-    time_control = str(data.get('time_control', '180,2'))
+    time_control = str(data.get('time_control', DEFAULT_TIME_CONTROL))
     if not sender:
         return jsonify({"error": "Não autenticado."}), 401
     if not recipient or recipient == sender:
         return jsonify({"error": "Desafio inválido."}), 400
-    if time_control not in {'60,0', '180,2', '600,5'}:
-        time_control = '180,2'
+    if time_control not in TIME_CONTROLS:
+        return jsonify({"error": "Controle de tempo inválido."}), 400
 
     with get_db() as conn:
         if not google_account_is_linked(conn, sender):
@@ -927,11 +927,13 @@ def clubs_message(club_id):
 def clubs_challenge(club_id):
     data = request.get_json(silent=True) or {}
     username = session.get('username') or str(data.get('username', '')).strip()
-    time_control = str(data.get('time_control', '180,2'))
+    time_control = str(data.get('time_control', DEFAULT_TIME_CONTROL))
     mode = str(data.get('mode', 'blitz'))
 
     if not username:
         return jsonify({"error": "Não autenticado."}), 401
+    if time_control not in TIME_CONTROLS:
+        return jsonify({"error": "Controle de tempo inválido."}), 400
 
     with get_db() as conn:
         if not google_account_is_linked(conn, username):

@@ -15,7 +15,10 @@ from core.engine import (
     categorize_time_control, apply_fide_rating_update, get_bot_strength_profile
 )
 from core.bot_identity import OFFICIAL_BOT_COUNTRIES, classic_bot_country
-from core.constants import BOT_SEALS, CLASSIC_BONUS_BOTS, CLASSIC_BOT_NUMBER_MAX, CLASSIC_MODES, MISSION_DEFINITIONS
+from core.constants import (
+    BOT_SEALS, CLASSIC_BONUS_BOTS, CLASSIC_BOT_NUMBER_MAX, CLASSIC_MODES, MISSION_DEFINITIONS,
+    TIME_CONTROLS, DEFAULT_TIME_CONTROL,
+)
 from core.rating import (
     settle_pvp_ratings, settle_bot_calibration, settle_bermuda_rating,
     describe_ratings, get_rating_summary
@@ -227,13 +230,9 @@ def game_create():
                 return jsonify({"error": "Para jogar online, conecte uma conta Google ao seu perfil."}), 403
         username = authenticated_username
 
-    supported_time_controls = {
-        '60,0', '60,1', '120,0', '120,1', '180,0', '180,2', '300,0',
-        '600,0', '600,3', '600,5', '900,10', '1800,0', '1800,30'
-    }
     if time_control == 'random':
-        time_control = random.choice(tuple(supported_time_controls))
-    if not isinstance(time_control, str) or time_control not in supported_time_controls:
+        time_control = random.choice(tuple(TIME_CONTROLS))
+    if not isinstance(time_control, str) or time_control not in TIME_CONTROLS:
         return jsonify({"error": "Controle de tempo inválido."}), 400
 
     if mode == 'pvp' and rated:
@@ -470,14 +469,10 @@ def ranked_queue_join():
         return jsonify({"error": "Entre na sua conta para buscar uma partida ranqueada."}), 401
 
     data = request.get_json(silent=True) or {}
-    time_control = str(data.get('time_control', '180,2'))
-    controls = {
-        '60,0': (60, 0), '60,1': (60, 1), '180,0': (180, 0),
-        '180,2': (180, 2), '300,0': (300, 0), '600,0': (600, 0),
-        '900,10': (900, 10), '1800,0': (1800, 0)
-    }
+    time_control = str(data.get('time_control', DEFAULT_TIME_CONTROL))
+    controls = TIME_CONTROLS
     if time_control not in controls:
-        time_control = '180,2'
+        return jsonify({"error": "Controle de tempo inválido."}), 400
 
     min_offset = parse_bounded_integer(data.get('min_offset', -100), -300, 200)
     max_offset = parse_bounded_integer(data.get('max_offset', 200), -300, 100000)
@@ -648,12 +643,7 @@ def rematch_waiting_player(conn, username):
           me['rating'], me['rating'], me['rating'])).fetchone()
     if not opponent:
         return None
-    controls = {
-        '60,0': (60, 0), '60,1': (60, 1), '180,0': (180, 0),
-        '180,2': (180, 2), '300,0': (300, 0), '600,0': (600, 0),
-        '900,10': (900, 10), '1800,0': (1800, 0)
-    }
-    time_initial, time_increment = controls.get(me['time_control'], (180, 2))
+    time_initial, time_increment = TIME_CONTROLS.get(me['time_control'], TIME_CONTROLS[DEFAULT_TIME_CONTROL])
     game_id = secrets.token_urlsafe(8)
     # The atomic UPDATE claims both rows; if another request already matched one, nothing changes.
     claimed = conn.execute(
@@ -689,6 +679,15 @@ def ranked_queue_leave():
     return jsonify({"success": True})
 
 FIRST_MOVE_LIMIT_SECONDS = 20
+
+# Tolerância de rede: só dá bandeira quando o tempo estourou por MAIS que isto. O relógio do servidor
+# começa quando ele termina de calcular, mas o jogador só vê a posição depois da viagem da resposta;
+# sem folga, quem jogava com ~1 s no relógio perdia por latência mesmo tendo lançado o lance a tempo.
+# O tempo é descontado normalmente (nunca fica negativo) e o incremento é somado depois.
+MOVE_LAG_GRACE_SECONDS = 0.5
+
+def clock_expired(remaining: float) -> bool:
+    return remaining <= -MOVE_LAG_GRACE_SECONDS
 
 def first_move_seconds_left(history: list[dict], turn: str, last_move_time, status: str):
     """Seconds left for the side to move to play its first move, or None if not applicable."""
@@ -915,10 +914,6 @@ def game_active():
 RESTORE_OFFICIAL_RATINGS = {1: 500, 2: 1000, 3: 1500, 4: 2100, 5: 2150, 6: 2300, 7: 2400, 8: 2500, 9: 2700, 10: 2850, 11: 3000, 12: 1900}
 RESTORE_BOT_NAMES = {1: "Capivarão", 2: "Pirata", 3: "Marinheiro", 4: "Governador", 5: "Imperador", 6: "Pedro",
                      7: "Dill", 8: "Erick", 9: "Anonimus", 10: "Camargo", 11: "Fish", 12: "Rafachess"}
-RESTORE_TIME_CONTROLS = {
-    '60,0', '60,1', '120,0', '120,1', '180,0', '180,2', '300,0',
-    '600,0', '600,3', '600,5', '900,10', '1800,0', '1800,30'
-}
 
 
 @game_bp.route('/game/restore', methods=['POST'])
@@ -937,7 +932,7 @@ def game_restore():
     time_control = str(data.get('time_control', ''))
     color = data.get('color')
     if (not username or not isinstance(history_uci, list) or len(history_uci) > 600
-            or color not in ('white', 'black') or time_control not in RESTORE_TIME_CONTROLS
+            or color not in ('white', 'black') or time_control not in TIME_CONTROLS
             or not all(validate_uci_move(move) for move in history_uci)):
         return jsonify({"error": "Dados da partida inválidos."}), 400
     if bot_number is None or not (1 <= bot_number <= 12 or 701 <= bot_number <= CLASSIC_BOT_NUMBER_MAX):
@@ -1085,7 +1080,8 @@ def game_state(game_id):
             board = board_from_game_state(fen, history)
             if turn == 'w':
                 w_time = max(0.0, white_time - elapsed)
-                if w_time <= 0 and is_participant:
+                w_flagged = clock_expired(white_time - elapsed)
+                if w_flagged and is_participant:
                     winner, termination_reason = check_timeout_fide(board, 'white')
                     status = 'timeout'
                     conn.execute("UPDATE games SET status = 'timeout', winner = ?, termination_reason = ?, white_time = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (winner, termination_reason, game_id))
@@ -1103,12 +1099,13 @@ def game_state(game_id):
                         conn, game_type, classic_mode, classic_bot_number,
                         bot_rating or 0, white_user, black_user, winner
                     )
-                elif w_time <= 0:
+                elif w_flagged:
                     winner, termination_reason = check_timeout_fide(board, 'white')
                     status = 'timeout'
             elif turn == 'b':
                 b_time = max(0.0, black_time - elapsed)
-                if b_time <= 0 and is_participant:
+                b_flagged = clock_expired(black_time - elapsed)
+                if b_flagged and is_participant:
                     winner, termination_reason = check_timeout_fide(board, 'black')
                     status = 'timeout'
                     conn.execute("UPDATE games SET status = 'timeout', winner = ?, termination_reason = ?, black_time = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (winner, termination_reason, game_id))
@@ -1126,7 +1123,7 @@ def game_state(game_id):
                         conn, game_type, classic_mode, classic_bot_number,
                         bot_rating or 0, white_user, black_user, winner
                     )
-                elif b_time <= 0:
+                elif b_flagged:
                     winner, termination_reason = check_timeout_fide(board, 'black')
                     status = 'timeout'
 
@@ -1232,7 +1229,7 @@ def game_move(game_id):
             elapsed = max(0.0, now - float(last_move_time))
             if turn == 'w':
                 w_time -= elapsed
-                if w_time <= 0:
+                if clock_expired(w_time):
                     winner, reason = check_timeout_fide(board, 'white')
                     conn.execute("UPDATE games SET status = 'timeout', winner = ?, termination_reason = ?, white_time = 0 WHERE id = ?", (winner, reason, game_id))
                     rating_change, new_user_rating = update_initial_calibration_result(
@@ -1248,10 +1245,10 @@ def game_move(game_id):
                         bot_rating or 0, white_user, black_user, winner
                     )
                     return jsonify({"error": reason, "game_over": True, "status": "timeout", "winner": winner, "missions_completed": missions_completed, "rating_change": rating_change, "new_rating": new_user_rating, "classic_rating_change": classic_rating_change})
-                w_time += time_increment
+                w_time = max(0.0, w_time) + time_increment
             else:
                 b_time -= elapsed
-                if b_time <= 0:
+                if clock_expired(b_time):
                     winner, reason = check_timeout_fide(board, 'black')
                     conn.execute("UPDATE games SET status = 'timeout', winner = ?, termination_reason = ?, black_time = 0 WHERE id = ?", (winner, reason, game_id))
                     rating_change, new_user_rating = update_initial_calibration_result(
@@ -1267,7 +1264,7 @@ def game_move(game_id):
                         bot_rating or 0, white_user, black_user, winner
                     )
                     return jsonify({"error": reason, "game_over": True, "status": "timeout", "winner": winner, "missions_completed": missions_completed, "rating_change": rating_change, "new_rating": new_user_rating, "classic_rating_change": classic_rating_change})
-                b_time += time_increment
+                b_time = max(0.0, b_time) + time_increment
 
         try:
             move_obj = chess.Move.from_uci(move_uci)
@@ -1686,7 +1683,7 @@ def game_claim_timeout(game_id):
 
         if turn == 'w':
             current_w_time = white_time - elapsed
-            if current_w_time <= 0:
+            if clock_expired(current_w_time):
                 winner, reason = check_timeout_fide(board, 'white')
                 conn.execute("UPDATE games SET status = 'timeout', winner = ?, termination_reason = ?, white_time = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (winner, reason, game_id))
                 if rated and game_type == 'pvp':
@@ -1706,7 +1703,7 @@ def game_claim_timeout(game_id):
                 return jsonify({"success": True, "status": "timeout", "winner": winner, "reason": reason, "missions_completed": missions_completed, "rating_change": rating_change, "new_rating": new_user_rating, "classic_rating_change": classic_rating_change})
         else:
             current_b_time = black_time - elapsed
-            if current_b_time <= 0:
+            if clock_expired(current_b_time):
                 winner, reason = check_timeout_fide(board, 'black')
                 conn.execute("UPDATE games SET status = 'timeout', winner = ?, termination_reason = ?, black_time = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (winner, reason, game_id))
                 if rated and game_type == 'pvp':

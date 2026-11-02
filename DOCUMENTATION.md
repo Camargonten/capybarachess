@@ -153,6 +153,15 @@ Implementado em `core/security.py` via `InMemoryRateLimiter` thread-safe com jan
 - Premove: até 2 lances agendados (casas em vermelho). `executePremove` roda quando a vez volta (resposta do bot ou polling PvP) e valida a legalidade; botão direito no tabuleiro cancela. Não pede confirmação.
 - Confirmar lance (Acessibilidade): `stageMoveForConfirmation` mostra a barra `#move-confirm-bar` com o SAN e marca origem/destino em verde; só `resolveConfirmMove(true)` envia ao servidor.
 - `#board` usa `touch-action: none` para o arrasto no celular não rolar a página.
+- Captura por toque: `onDragStart` recusa peças do adversário **sem limpar a seleção** (o `touchstart` vem antes do `click`; limpar antes fazia o toque na peça adversária nunca capturar).
+- Arrasto: `onDrop` devolve `undefined` quando o lance foi enviado (a peça fica onde foi solta) e `'snapback'` nos demais casos; `onSnapEnd` reconcilia roque/en passant com `game.fen()`. `sendGameMoveToServer(uci, { viaDrag })` não chama `board.position` ao arrastar, para não animar duas vezes.
+
+## Ritmos e relógio
+
+- `TIME_CONTROLS` (`core/constants.py`) é a **única** lista de ritmos aceitos; `/game/create`, a fila rankeada, desafios diretos, desafios de clube e `/game/restore` leem dela. Ritmo fora da lista devolve 400 (antes a fila e os desafios trocavam por 3+2 em silêncio). Ao liberar um ritmo novo: acrescente em `TIME_CONTROLS` e o botão/opção em `index.html` (`.time-btn`, `#select-time` e `#time-menu`).
+- "Ritmo aleatório" no seletor de Bots Oficiais sorteia no cliente um ritmo concreto do `<select>`.
+- Cliente: `setClocks` sincroniza com o servidor e `advanceClocks` desconta o tempo real decorrido (`performance.now()`), a cada 100 ms; não depende mais de o `setInterval` disparar certinho. Ao jogar, o incremento entra **na hora** no relógio do jogador (o servidor confirma na resposta). Reivindicação de tempo esgotado (`checkTimeoutServer`) é limitada a uma por 1,5 s.
+- Servidor: `MOVE_LAG_GRACE_SECONDS` (0,5 s, `blueprints/game.py`) é uma tolerância de rede: só dá bandeira quando o tempo estourou por mais que isso (`clock_expired`), em `/move`, `/state` e `/claim_timeout`. O tempo é descontado normalmente (nunca negativo) e o incremento soma depois.
 
 ## Áudio (`// --- SISTEMA DE ÁUDIO` em `index.html`)
 
@@ -200,4 +209,4 @@ Limites conhecidos: o limitador e o bloqueio de login são em memória (zerados 
 - **Play Store:** veja `PLAYSTORE.md` (PWA/TWA, ícones, assetlinks, páginas legais, exclusão de conta).
 - **Exclusão de conta:** `POST /account/delete` (Configurações → Suporte). Apaga dados pessoais e anonimiza partidas; o código `adm` continua marcado como usado.
 - **Erros do servidor traduzidos:** `window.alert` passa pelo `localizeStaticPhrase`; novas mensagens de erro devem ganhar tradução em `featurePhrases` (6 idiomas).
-- **Testes:** `python3 tests/smoke_api.py`, `tests/test_persistence.py`, `tests/test_google_login.py`, `tests/test_store_readiness.py` (banco vazio; SQLite por padrão, PostgreSQL com `DATABASE_URL`).
+- **Testes:** `python3 tests/smoke_api.py`, `tests/test_persistence.py`, `tests/test_google_login.py`, `tests/test_store_readiness.py`, `tests/test_time_controls.py` (banco vazio; SQLite por padrão, PostgreSQL com `DATABASE_URL`).
