@@ -24,7 +24,6 @@ from blueprints.auth import auth_bp
 from blueprints.game import game_bp
 from blueprints.social import social_bp
 from blueprints.user import user_bp, ensure_classic_profile
-from blueprints.analysis import analysis_bp
 
 
 logging.basicConfig(
@@ -46,7 +45,6 @@ PUBLIC_ENDPOINTS = {
     "social.ranking_online",
     "game.game_state", "game.game_create", "game.game_join", "game.game_move",
     "game.game_resign", "game.game_draw_offer", "game.game_takeback", "game.game_claim_timeout",
-    "analysis.analyze_position"
 }
 
 OWNER_FIELDS = {
@@ -104,7 +102,6 @@ def create_app():
     app.register_blueprint(game_bp)
     app.register_blueprint(social_bp)
     app.register_blueprint(user_bp)
-    app.register_blueprint(analysis_bp)
 
     @app.before_request
     def enforce_account_security():
