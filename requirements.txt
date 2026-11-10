@@ -4,7 +4,6 @@ Authlib==1.9.1
 requests==2.34.2
 python-dotenv==1.2.4
 gunicorn==26.2.0
-stockfish==5.2.0
 python-chess==1.999
 chess==1.11.2
 psycopg2-binary==2.9.13

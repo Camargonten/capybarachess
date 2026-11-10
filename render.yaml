@@ -16,6 +16,9 @@ services:
         value: "true"
       - key: APP_DEBUG
         value: "false"
+      # Quantos Stockfish rodam ao mesmo tempo (plano grátis tem só 512 MB de memória).
+      - key: ENGINE_SLOTS
+        value: "2"
       # Cole aqui a URL do PostgreSQL gratuito (Neon/Supabase) no painel do Render; sem ela os dados são apagados a cada reinício.
       - key: DATABASE_URL
         sync: false

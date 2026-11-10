@@ -18,18 +18,20 @@ class InMemoryRateLimiter:
     def __init__(self):
         self._requests = {}
         self._lock = Lock()
+        self._last_cleanup = time.time()
+
+    def _cleanup(self, now: float) -> None:
+        # Chaves de visitantes que sumiram não podem ficar na memória para sempre.
+        self._last_cleanup = now
+        horizon = now - 3600
+        self._requests = {k: v for k, v in self._requests.items() if v and v[-1] > horizon}
 
     def is_allowed(self, key: str, max_requests: int, window_seconds: int) -> bool:
         now = time.time()
         with self._lock:
-            # Limpeza periódica de entradas antigas se a tabela ficar muito grande
-            if len(self._requests) > 10000:
-                expired_threshold = now - 3600
-                self._requests = {
-                    k: [t for t in timestamps if t > expired_threshold]
-                    for k, timestamps in self._requests.items()
-                    if any(t > expired_threshold for t in timestamps)
-                }
+            # Limpeza periódica (a cada minuto) de quem não aparece há mais de uma hora
+            if now - self._last_cleanup > 60 or len(self._requests) > 10000:
+                self._cleanup(now)
 
             timestamps = self._requests.get(key, [])
             cutoff = now - window_seconds
@@ -57,6 +59,7 @@ class LoginThrottle:
     def __init__(self):
         self._failures = {}
         self._lock = Lock()
+        self._last_cleanup = time.time()
 
     @staticmethod
     def _keys(ip: str, username: str):
@@ -81,7 +84,8 @@ class LoginThrottle:
     def record_failure(self, ip: str, username: str) -> None:
         now = time.time()
         with self._lock:
-            if len(self._failures) > 20000:
+            if now - self._last_cleanup > 300 or len(self._failures) > 20000:
+                self._last_cleanup = now
                 self._failures = {k: v for k, v in self._failures.items() if v and v[-1] > now - self.WINDOW_SECONDS}
             for key in self._keys(ip, username):
                 self._failures.setdefault(key, []).append(now)

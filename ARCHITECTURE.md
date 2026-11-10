@@ -6,8 +6,8 @@
   application factory, shared request middleware, OAuth setup, and legacy
   compatibility for existing deployments.
 - `blueprints/` contains feature-level HTTP routes: authentication, chess
-  games and matchmaking, social interactions, user profiles/economy, and
-  analysis. Keep request parsing and response formatting at this boundary.
+  games and matchmaking, social interactions, and user profiles/economy.
+  Keep request parsing and response formatting at this boundary.
 - `core/` contains shared configuration, database access (SQLite/PostgreSQL) and schema migrations,
   constants/catalogues, security helpers, rating rules, and Stockfish
   orchestration. Put rules used by multiple routes here rather than copying

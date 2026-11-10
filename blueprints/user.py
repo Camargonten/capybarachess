@@ -361,7 +361,7 @@ def delete_account():
             ('achievements', 'username'), ('user_presence', 'username'), ('ranked_queue', 'username'),
             ('club_members', 'username'), ('game_aborts', 'username'), ('classic_profiles', 'username'),
             ('classic_bots', 'username'), ('game_rating_results', 'username'), ('missions', 'username'),
-            ('club_messages', 'sender'), ('club_challenges', 'creator'),
+            ('club_messages', 'sender'), ('club_challenges', 'creator'), ('game_chat', 'sender'),
         ):
             conn.execute(f"DELETE FROM {table} WHERE {column} = ?", (username,))
         for table, first, second in (
@@ -686,19 +686,22 @@ def classic_matchmake():
         if not user_is_calibrated(conn, username):
             return jsonify({"error": "Conclua duas partidas de calibração antes de buscar bots clássicos."}), 403
 
-    min_offset = parse_bounded_integer(data.get('min_offset', -100), -300, 200)
+    min_offset = parse_bounded_integer(data.get('min_offset', -100), -100000, 200)
     max_offset = parse_bounded_integer(data.get('max_offset', 200), -300, 100000)
     if min_offset is None or max_offset is None or max_offset < min_offset:
         return jsonify({"error": "Faixa de rating inválida."}), 400
+    # -9999 ou menos = infinito para baixo; 9999 ou mais = infinito para cima (em ambos, vence o bot mais próximo do seu Elo).
+    open_below = min_offset <= -9999
+    open_above = max_offset >= 9999
 
     ensure_classic_profile(username)
     with get_db() as conn:
         p_row = conn.execute("SELECT rating FROM classic_profiles WHERE username = ? AND mode = ?", (username, mode)).fetchone()
         player_rating = p_row['rating'] if p_row else 1200
         col_name = LANGUAGE_COLUMN_WHITELIST.get(language, "name_pt")
-        minimum_rating = max(0, player_rating + min_offset)
+        minimum_rating = 0 if open_below else max(0, player_rating + min_offset)
         maximum_rating = (
-            2147483647 if max_offset >= 9999 else max(0, player_rating + max_offset)
+            2147483647 if open_above else max(0, player_rating + max_offset)
         )
 
         query = f"""
@@ -707,7 +710,7 @@ def classic_matchmake():
             WHERE username = ? AND mode = ? AND rating BETWEEN ? AND ?
         """
         params = (username, mode, minimum_rating, maximum_rating)
-        if max_offset >= 9999:
+        if open_above or open_below:
             query += " ORDER BY ABS(rating - ?), bot_number LIMIT 1"
             params += (player_rating,)
         candidates = conn.execute(query, params).fetchall()
@@ -715,7 +718,7 @@ def classic_matchmake():
     if not candidates:
         return jsonify({"error": "Nenhum adversário disponível nesta faixa."}), 404
 
-    bot = candidates[0] if max_offset >= 9999 else random.choice(candidates)
+    bot = candidates[0] if (open_above or open_below) else random.choice(candidates)
     return jsonify({"success": True, "mode": mode, "player_rating": player_rating, "bot": {"number": bot['bot_number'], "name": bot['bname'], "rating": bot['rating'], "style": bot['style'], "country": classic_bot_country(bot['bot_number'])}})
 
 @user_bp.route('/classic/rematch', methods=['POST'])

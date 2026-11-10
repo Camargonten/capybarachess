@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import os
 import random
 import time
 from contextlib import contextmanager
@@ -11,8 +12,19 @@ from core.config import STOCKFISH_CANDIDATES
 
 logger = logging.getLogger("capybara_engine")
 
-# Match Gunicorn's four request threads while keeping independent games concurrent.
-_engine_slots = BoundedSemaphore(value=4)
+# Cada Stockfish aberto ocupa dezenas de MB (rede neural + tabela hash). No Render grátis (512 MB) quatro ao mesmo
+# tempo estouram a memória, então o padrão são 2 em paralelo; as demais requisições esperam a vez.
+# Em servidor maior, aumente com a variável de ambiente ENGINE_SLOTS (1 a 4).
+ENGINE_SLOTS = max(1, min(4, int(os.environ.get('ENGINE_SLOTS', '2') or 2)))
+_engine_slots = BoundedSemaphore(value=ENGINE_SLOTS)
+
+
+def _limit_engine_memory(engine) -> None:
+    """Uma thread e 8 MB de hash por motor: força de sobra para os bots e bem menos memória."""
+    try:
+        engine.configure({'Threads': 1, 'Hash': 8})
+    except Exception:
+        logger.warning("Não foi possível limitar a memória do Stockfish.", exc_info=True)
 
 def _open_simple_engine(command: str, timeout: float) -> chess.engine.SimpleEngine:
     async def initialize(future):
@@ -124,6 +136,7 @@ def stockfish_engine(timeout: float = 10.0):
             details = '; '.join(f'{path}: {error!r}' for path, error in startup_errors)
             raise RuntimeError(f"Não foi possível iniciar Stockfish: {details}") from (startup_errors[-1][1] if startup_errors else None)
         try:
+            _limit_engine_memory(engine)
             yield engine
         finally:
             _shutdown_simple_engine(engine)
@@ -264,7 +277,7 @@ def _pick_bot_move(engine, board: chess.Board, bot_rating: int, profile: dict, t
 
 # O bot "pensa" pelo menos isso antes de jogar, exceto com o relógio quase no fim.
 BOT_MIN_THINK_SECONDS = 4.0
-BOT_INSTANT_BELOW_SECONDS = 10.0
+BOT_INSTANT_BELOW_SECONDS = 20.0
 
 
 def get_bot_move_fide(board: chess.Board, bot_rating: int, remaining_time: float | None = None):
@@ -300,6 +313,7 @@ def get_bot_move_fide(board: chess.Board, bot_rating: int, remaining_time: float
                 raise RuntimeError(f"Não foi possível iniciar Stockfish em nenhum caminho: {details}") from (startup_errors[-1][1] if startup_errors else None)
 
             try:
+                _limit_engine_memory(engine)
                 move = _pick_bot_move(engine, board, bot_rating, profile, think_time_ms)
             finally:
                 _shutdown_simple_engine(engine)

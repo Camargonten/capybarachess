@@ -16,8 +16,7 @@ capybara-chess/
 │   ├── auth.py           # Autenticação, registro, login, OAuth Google e perfil
 │   ├── game.py           # Gestão autoritativa de partidas, lances FIDE, relógio e timeouts
 │   ├── social.py         # Ranking online, pesquisa, amigos, chat e sistema de clubes
-│   ├── user.py           # Cosméticos, inventário, cupons promocionais, missões e calibração
-│   └── analysis.py       # Análise tática com avaliação de centipawns e classificação de lances
+│   └── user.py           # Cosméticos, inventário, cupons promocionais, missões e calibração
 ├── static/
 │   ├── pieces/           # 12 peças SVG locais oficiais (independência de CDNs e prevenção de tela preta)
 │   ├── sw.js             # Service Worker otimizado com política Network-First para navegação
@@ -59,7 +58,7 @@ Implementado em `core/security.py` via `InMemoryRateLimiter` thread-safe com jan
 - `/login`: máximo de 10 requisições por minuto por IP.
 - `/register`: máximo de 5 requisições por minuto por IP.
 - `/game/<id>/move`: máximo de 60 requisições por minuto (1 lance/s).
-- `/analyze_position` & `/bot_move`: máximo de 30 requisições por minuto por IP.
+- `/bot_move`: máximo de 30 requisições por minuto por IP.
 - `/redeem_promo`: máximo de 6 tentativas por minuto por IP.
 - Resposta padronizada HTTP `429 Too Many Requests`.
 
@@ -127,12 +126,20 @@ Implementado em `core/security.py` via `InMemoryRateLimiter` thread-safe com jan
 - "Sem limite" para cima (`max_offset >= 9999`) pareia com o primeiro da fila; o mínimo continua definido pelo jogador.
 - O cliente trata `waiting` e `queued` como "ainda procurando".
 
+## Recursos online entre jogadores (`blueprints/game.py`)
+- **Empate:** `POST /game/<id>/draw_offer` com `action` = `offer`, `accept` ou `decline`. Quem recebe a proposta vê a barra *Aceitar/Recusar* (o cliente consulta o estado a cada 2 s); quem propôs vê "Empate proposto" e é avisado se for recusado. Qualquer lance limpa a proposta.
+- **Desafio por link:** `POST /game/create` com `mode: 'pvp'` aceita `rated: true` (Rankeada, rating oficial), `bermuda: true` (rating Bermuda do ritmo Bullet/Blitz/Rápida, guardado em `games.classic_mode`) ou nenhum dos dois (Amistosa, sem rating). `update_pvp_game_ratings` aplica o rating certo em todos os fins de partida; `settle_bermuda_pvp_rating` (`core/rating.py`) atualiza os dois jogadores.
+- **Fila:** a pessoa só fica na fila enquanto a tela de busca consulta `/matchmaking/ranked/status`; sem consulta por 20 s (`ranked_queue.heartbeat_at`), fechando o app (`sendBeacon` em `pagehide`) ou saindo da tela, ela sai sozinha. A faixa de Elo aceita `-9999` (infinito para baixo) e `9999` (infinito para cima); nos dois casos o pareamento segue a ordem de chegada (ranqueada) ou o bot mais próximo (Bermuda).
+- **Chat da partida:** `GET/POST /game/<id>/chat` (tabela `game_chat`), só entre os dois jogadores de partidas online; 200 caracteres por mensagem, 300 por partida, apagado após 7 dias.
+- **Histórico e replay:** o perfil (`GET /players/<nome>`) lista as partidas encerradas com tipo, ritmo e resultado; `GET /game/<id>/replay` devolve lances (SAN), uma posição (FEN) por lance e o PGN completo. Partidas contra bot só podem ser revistas pelos jogadores; partidas entre jogadores são públicas para quem está logado.
+- **Relógio do bot:** o tempo gasto pensando é descontado do bot e, se a bandeira cair (ou o relógio já estiver zerado), ele perde por tempo (`check_timeout_fide`). Com 20 s ou menos (`BOT_INSTANT_BELOW_SECONDS`) o bot joga no automático. No modo Bermuda o rating do bot enfrentado também sobe/desce (`_settle_bermuda_bot_rating`).
+
 ## Força dos bots (`core/engine.py`)
 
 - Rating >= 1320: `UCI_LimitStrength` com `UCI_Elo` igual ao rating do bot (máx. 3190).
 - Rating < 1320: sem `UCI_Elo` (o Stockfish não aceita). Usa `blunder_chance()` (65% em 300 → 5% em 1320 de lance aleatório) e, no restante, busca rasa (depth 2, MultiPV 4) escolhendo candidatos piores com probabilidade crescente para ratings menores. Teste local: bot 500 perdeu 0/6 contra 800 e 0/6 contra 1100.
 - Os valores são aproximados e podem ser ajustados nas tabelas de `blunder_chance`/`best_weight`.
-- Tempo de "pensar": o bot espera pelo menos `BOT_MIN_THINK_SECONDS` (4 s) antes de cada lance. Só joga sem essa espera quando o próprio relógio está em `BOT_INSTANT_BELOW_SECONDS` (10 s) ou menos. O tempo gasto é descontado do relógio do bot.
+- Tempo de "pensar": o bot espera pelo menos `BOT_MIN_THINK_SECONDS` (4 s) antes de cada lance. Só joga sem essa espera quando o próprio relógio está em `BOT_INSTANT_BELOW_SECONDS` (20 s) ou menos. O tempo gasto é descontado do relógio do bot.
 
 ## Bots lendas
 
@@ -203,10 +210,15 @@ Implementado em `core/security.py` via `InMemoryRateLimiter` thread-safe com jan
 
 Limites conhecidos: o limitador e o bloqueio de login são em memória (zerados ao reiniciar); mensagens de erro do backend estão em português; revisão jurídica (LGPD, termos de uso) deve ser feita por profissional.
 
+## Memória e desempenho (Render grátis, 512 MB)
+- Cada Stockfish ocupa dezenas de MB: `ENGINE_SLOTS` (padrão 2, máximo 4) limita quantos rodam ao mesmo tempo e cada um usa 1 thread e 8 MB de hash.
+- O Gunicorn recicla o processo a cada ~1500 requisições (`--max-requests`), o limitador de requisições e o bloqueio de login apagam entradas antigas a cada minuto/5 minutos, e `MALLOC_ARENA_MAX=2` evita inchaço de memória por thread.
+- O app em segundo plano pausa as consultas periódicas (`document.hidden`) para poupar o servidor.
+
 ## Persistência, Play Store e testes
 
 - **Dados que sobrevivem a reinícios:** configure `DATABASE_URL` (PostgreSQL). Passo a passo em `DEPLOY.md`; arquitetura em `ARCHITECTURE.md`. Partidas voltam ao ponto em que foram deixadas (`/game/active`, relógios congelados durante a pausa do servidor, cópia no `localStorage` para bots).
 - **Play Store:** veja `PLAYSTORE.md` (PWA/TWA, ícones, assetlinks, páginas legais, exclusão de conta).
 - **Exclusão de conta:** `POST /account/delete` (Configurações → Suporte). Apaga dados pessoais e anonimiza partidas; o código `adm` continua marcado como usado.
 - **Erros do servidor traduzidos:** `window.alert` passa pelo `localizeStaticPhrase`; novas mensagens de erro devem ganhar tradução em `featurePhrases` (6 idiomas).
-- **Testes:** `python3 tests/smoke_api.py`, `tests/test_persistence.py`, `tests/test_google_login.py`, `tests/test_store_readiness.py`, `tests/test_time_controls.py` (banco vazio; SQLite por padrão, PostgreSQL com `DATABASE_URL`).
+- **Testes:** `python3 tests/smoke_api.py`, `tests/test_persistence.py`, `tests/test_google_login.py`, `tests/test_store_readiness.py`, `tests/test_online_features.py` (empate, link Bermuda/rankeada, fila, chat, histórico e replay), `tests/test_time_controls.py` (banco vazio; SQLite por padrão, PostgreSQL com `DATABASE_URL`).

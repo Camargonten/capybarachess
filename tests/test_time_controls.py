@@ -1,6 +1,7 @@
-"""Ritmos de jogo e relógio: lista única (TIME_CONTROLS), incremento e tolerância de rede.
+"""Ritmos de jogo e relógio: lista única (TIME_CONTROLS), incremento, tolerância de rede, bandeira do bot
+e rating dos bots do modo Bermuda.
 
-Usa partidas PvP (sem Stockfish). Rode contra um banco VAZIO/descartável:
+Usa partidas PvP e um motor simulado no lugar do Stockfish. Rode contra um banco VAZIO/descartável:
 
     DATABASE_PATH=/tmp/timectl.db python3 tests/test_time_controls.py
     DATABASE_URL=postgresql://... python3 tests/test_time_controls.py
@@ -12,7 +13,12 @@ import time
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 import xadrez  # noqa: E402
+import blueprints.game as game_module  # noqa: E402
 from blueprints.game import MOVE_LAG_GRACE_SECONDS  # noqa: E402
+from blueprints.user import ensure_classic_profile  # noqa: E402
+from core.constants import CLASSIC_MODES  # noqa: E402
+from core.engine import BOT_INSTANT_BELOW_SECONDS  # noqa: E402
+from core.rating import settle_bermuda_rating  # noqa: E402
 from core.constants import TIME_CONTROLS  # noqa: E402
 from core.db import get_db  # noqa: E402
 from core.security import limiter  # noqa: E402
@@ -123,6 +129,72 @@ set_clock(game_id, 1.0, 1.0 + MOVE_LAG_GRACE_SECONDS * 0.5)
 state = white.get(f'/game/{game_id}/state').get_json()
 check(state.get('status') == 'active' and state.get('white_time') == 0.0, 'state dentro da tolerância: ativo com 0,0')
 finish(game_id, white)
+
+# 8) bots: modo automático (lance imediato) só abaixo de 20 s
+check(BOT_INSTANT_BELOW_SECONDS == 20.0, 'bot joga no automático com 20 s ou menos no relógio')
+
+# 9) bots perdem por tempo (motor simulado: lance legal após `fake_think` segundos)
+fake_think = [0.0]
+
+
+def fake_bot_move(board, rating, remaining_time=None):
+    time.sleep(fake_think[0])
+    return next(iter(board.legal_moves)).uci(), 1
+
+
+game_module.get_bot_move_fide = fake_bot_move
+
+
+def new_bot_game(control='60,0'):
+    limiter._requests.clear()
+    created = alice.post('/game/create', json={'mode': 'bot', 'color': 'white', 'time_control': control,
+                                               'bot_number': 1, 'bot_rating': 500, 'rated': False}).get_json()
+    return created.get('game_id') or created.get('id')
+
+
+def set_bot_clock(game_id, black_time):
+    with get_db() as conn:
+        conn.execute("UPDATE games SET black_time = ?, last_move_time = ? WHERE id = ?", (black_time, time.time(), game_id))
+
+
+game_id = new_bot_game()
+data = alice.post(f'/game/{game_id}/move', json={'move': 'e2e4'}).get_json()
+check(data.get('status') == 'active' and data.get('bot_move'), 'bot com tempo responde normalmente')
+
+set_bot_clock(game_id, 0.0)
+data = alice.post(f'/game/{game_id}/move', json={'move': 'd2d4'}).get_json()
+check(data.get('status') == 'timeout' and data.get('winner') == 'white' and not data.get('bot_move'),
+      'bot com relógio zerado perde por tempo sem jogar')
+check(data.get('black_time') == 0.0, 'relógio do bot fica em 0,0 após a derrota')
+
+game_id = new_bot_game()
+fake_think[0] = 0.5
+set_bot_clock(game_id, 0.2)
+data = alice.post(f'/game/{game_id}/move', json={'move': 'e2e4'}).get_json()
+check(data.get('status') == 'timeout' and data.get('winner') == 'white' and not data.get('bot_move'),
+      'bot que demora mais que o tempo restante perde por tempo')
+
+game_id = new_bot_game()
+set_bot_clock(game_id, 5.0)
+data = alice.post(f'/game/{game_id}/move', json={'move': 'e2e4'}).get_json()
+check(data.get('status') == 'active' and 4.0 <= data.get('black_time', 0) <= 5.0, 'bot com folga segue jogando e paga o tempo gasto')
+fake_think[0] = 0.0
+finish(game_id, alice)
+
+# 10) rating dos bots do modo Bermuda sobe/desce depois da partida (uma única vez por partida)
+ensure_classic_profile('tc_alice')
+with get_db() as conn:
+    bot = conn.execute("SELECT bot_number, rating FROM classic_bots WHERE username = 'tc_alice' AND mode = 'blitz' ORDER BY bot_number LIMIT 1").fetchone()
+    start = bot['rating']
+    settle_bermuda_rating(conn, 'bermuda-teste-1', 'bot', 'blitz', bot['bot_number'], start, 'tc_alice', 'Bot: Teste', 'white', CLASSIC_MODES)
+    after_loss = conn.execute("SELECT rating FROM classic_bots WHERE username = 'tc_alice' AND mode = 'blitz' AND bot_number = ?", (bot['bot_number'],)).fetchone()['rating']
+    settle_bermuda_rating(conn, 'bermuda-teste-1', 'bot', 'blitz', bot['bot_number'], start, 'tc_alice', 'Bot: Teste', 'white', CLASSIC_MODES)
+    repeated = conn.execute("SELECT rating FROM classic_bots WHERE username = 'tc_alice' AND mode = 'blitz' AND bot_number = ?", (bot['bot_number'],)).fetchone()['rating']
+    settle_bermuda_rating(conn, 'bermuda-teste-2', 'bot', 'blitz', bot['bot_number'], after_loss, 'tc_alice', 'Bot: Teste', 'black', CLASSIC_MODES)
+    after_win = conn.execute("SELECT rating FROM classic_bots WHERE username = 'tc_alice' AND mode = 'blitz' AND bot_number = ?", (bot['bot_number'],)).fetchone()['rating']
+check(after_loss < start, f'bot perde rating ao ser derrotado ({start} -> {after_loss})')
+check(repeated == after_loss, 'a mesma partida não conta duas vezes para o bot')
+check(after_win > after_loss, f'bot ganha rating ao vencer ({after_loss} -> {after_win})')
 
 print()
 sys.exit(1 if errors else 0)

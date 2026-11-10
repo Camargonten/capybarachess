@@ -90,7 +90,6 @@ official = call(alice, 'post', '/game/create', 'partida bot oficial', 200, json=
 if official.get('game_id'):
     call(alice, 'post', f"/game/{official['game_id']}/abort", json={})
 call(alice, 'post', '/bot_move', json={'fen': 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', 'bot_rating': 800})
-call(alice, 'post', '/analyze_position', json={'fen': 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1'})
 
 # amigos, mensagens, presentes
 call(alice, 'post', '/friends/request', expect=200, json={'recipient': 'smoke_bob'})

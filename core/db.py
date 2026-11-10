@@ -1,6 +1,7 @@
 import os
 import sqlite3
 import threading
+import time
 from contextlib import contextmanager
 from core.config import DATABASE_PATH, DATABASE_URL, USING_POSTGRES
 
@@ -51,7 +52,14 @@ def get_db():
     finally:
         conn.close()
 
+_last_chat_purge = 0.0
+
+
 def cleanup_ephemeral_sessions(conn, current_username: str | None = None) -> None:
+    global _last_chat_purge
+    if time.time() - _last_chat_purge > 3600:  # conversas de partidas antigas somem depois de 7 dias
+        _last_chat_purge = time.time()
+        conn.execute("DELETE FROM game_chat WHERE created_at < datetime('now', '-7 days')")
     # Heartbeats make abandoned queue entries cheap to identify without a scheduler.
     conn.execute("""
         DELETE FROM ranked_queue
@@ -60,6 +68,12 @@ def cleanup_ephemeral_sessions(conn, current_username: str | None = None) -> Non
             WHERE p.username = ranked_queue.username
               AND p.last_seen_at >= datetime('now', '-45 seconds')
         )
+    """)
+    # A fila só vale enquanto a tela de busca consulta o status (a cada ~2 s): sem consulta, a pessoa sai sozinha.
+    conn.execute("""
+        DELETE FROM ranked_queue
+        WHERE status = 'waiting'
+          AND COALESCE(heartbeat_at, queued_at) < datetime('now', '-20 seconds')
     """)
     conn.execute("""
         DELETE FROM ranked_queue
@@ -235,7 +249,8 @@ def init_db():
                 time_control TEXT NOT NULL,
                 status TEXT NOT NULL DEFAULT 'waiting',
                 game_id TEXT,
-                queued_at TEXT DEFAULT CURRENT_TIMESTAMP
+                queued_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                heartbeat_at TEXT
             )
         ''')
         cursor.execute("PRAGMA table_info(ranked_queue)")
@@ -243,6 +258,7 @@ def init_db():
         for column, definition in {
             'min_rating': "INTEGER NOT NULL DEFAULT 0",
             'max_rating': "INTEGER NOT NULL DEFAULT 2147483647",
+            'heartbeat_at': "TEXT",
         }.items():
             if column not in ranked_queue_columns:
                 cursor.execute(f"ALTER TABLE ranked_queue ADD COLUMN {column} {definition}")
@@ -399,6 +415,19 @@ def init_db():
         cursor.execute('''
             CREATE INDEX IF NOT EXISTS idx_gift_expiry
             ON gift_requests(status, created_at)
+        ''')
+        cursor.execute('''
+            CREATE TABLE IF NOT EXISTS game_chat (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                game_id TEXT NOT NULL,
+                sender TEXT NOT NULL,
+                message TEXT NOT NULL,
+                created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+            )
+        ''')
+        cursor.execute('''
+            CREATE INDEX IF NOT EXISTS idx_game_chat_game
+            ON game_chat(game_id, id)
         ''')
         cursor.execute('''
             CREATE TABLE IF NOT EXISTS classic_profiles (

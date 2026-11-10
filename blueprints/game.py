@@ -4,6 +4,7 @@ import random
 import re
 import secrets
 import chess
+import chess.pgn
 from flask import Blueprint, jsonify, request, session
 from core.db import get_db, cleanup_ephemeral_sessions
 from core.security import (
@@ -11,7 +12,7 @@ from core.security import (
     google_account_is_linked,
 )
 from core.engine import (
-    check_fide_end_conditions, check_timeout_fide, get_bot_move_fide,
+    check_fide_end_conditions, check_timeout_fide, get_bot_move_fide, BOT_MIN_THINK_SECONDS,
     categorize_time_control, apply_fide_rating_update, get_bot_strength_profile
 )
 from core.bot_identity import OFFICIAL_BOT_COUNTRIES, classic_bot_country
@@ -20,8 +21,8 @@ from core.constants import (
     TIME_CONTROLS, DEFAULT_TIME_CONTROL,
 )
 from core.rating import (
-    settle_pvp_ratings, settle_bot_calibration, settle_bermuda_rating,
-    describe_ratings, get_rating_summary
+    settle_pvp_ratings, settle_bot_calibration, settle_bermuda_rating, settle_bermuda_pvp_rating,
+    ensure_bermuda_profiles, describe_ratings, get_rating_summary
 )
 
 game_bp = Blueprint('game', __name__)
@@ -54,6 +55,18 @@ def _current_game_id() -> str:
 
 def update_pvp_rating_transaction(conn, white_user: str, black_user: str, winner: str):
     return settle_pvp_ratings(conn, _current_game_id(), white_user, black_user, winner)
+
+def update_pvp_game_ratings(conn, white_user: str, black_user: str, winner: str):
+    """Fim de partida entre jogadores: Rankeada atualiza o rating oficial; Bermuda, o rating Bermuda do ritmo."""
+    game_id = _current_game_id()
+    game = conn.execute("SELECT rated, classic_mode FROM games WHERE id = ?", (game_id,)).fetchone()
+    if not game:
+        return 0
+    if game['rated']:
+        return update_pvp_rating_transaction(conn, white_user, black_user, winner)
+    if game['classic_mode']:
+        return settle_bermuda_pvp_rating(conn, game_id, game['classic_mode'], white_user, black_user, winner, CLASSIC_MODES)
+    return 0
 
 def parse_request_integer(data: dict, field: str, default: int) -> int | None:
     value = data.get(field, default)
@@ -220,6 +233,11 @@ def game_create():
     if not isinstance(rated_value, bool):
         return jsonify({"error": "A opção de rating deve ser booleana."}), 400
     rated = int(rated_value)
+    bermuda_value = data.get('bermuda', False)
+    if not isinstance(bermuda_value, bool):
+        return jsonify({"error": "A opção Bermuda deve ser booleana."}), 400
+    if bermuda_value and mode == 'pvp':
+        rated = 0  # partida Bermuda vale no rating Bermuda, nunca no rating oficial
 
     if mode == 'pvp':
         authenticated_username = session.get('username')
@@ -235,7 +253,7 @@ def game_create():
     if not isinstance(time_control, str) or time_control not in TIME_CONTROLS:
         return jsonify({"error": "Controle de tempo inválido."}), 400
 
-    if mode == 'pvp' and rated:
+    if mode == 'pvp' and (rated or bermuda_value):
         authenticated_username = session.get('username')
         if not authenticated_username:
             return jsonify({"error": "Entre na sua conta e conclua a calibração antes do modo ranqueado."}), 401
@@ -245,7 +263,7 @@ def game_create():
                 (authenticated_username,)
             ).fetchone()
         if not user or not user['calibrated']:
-            return jsonify({"error": "Conclua duas partidas de calibração antes do modo ranqueado."}), 403
+            return jsonify({"error": "Conclua duas partidas de calibração antes do modo ranqueado ou Bermuda."}), 403
 
     authenticated_username = session.get('username')
     if mode == 'bot' and authenticated_username:
@@ -261,6 +279,12 @@ def game_create():
             bot_rating = calibration_ratings[bot_number]
 
     time_initial, time_increment = (int(part) for part in time_control.split(',', 1))
+
+    pvp_classic_mode = ''
+    if mode == 'pvp' and bermuda_value:
+        pvp_classic_mode = categorize_time_control(time_initial, time_increment)
+        if pvp_classic_mode not in CLASSIC_MODES:
+            return jsonify({"error": "Este ritmo não vale para o rating Bermuda. Use Bullet, Blitz ou Rápida."}), 400
 
     game_id = secrets.token_urlsafe(8)
 
@@ -373,10 +397,12 @@ def game_create():
             cursor.execute('''
                 INSERT INTO games (id, white_user, black_user, creator_user, creator_color, game_type,
                                   time_initial, time_increment, white_time, black_time, last_move_time,
-                                  fen, history, turn, status, rated)
-                VALUES (?, ?, ?, ?, ?, 'pvp', ?, ?, ?, ?, NULL, 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', '[]', 'w', 'waiting', ?)
+                                  fen, history, turn, status, rated, classic_mode)
+                VALUES (?, ?, ?, ?, ?, 'pvp', ?, ?, ?, ?, NULL, 'rnbqkbnr/pppppppp/8/8/8/8/PPPPPPPP/RNBQKBNR w KQkq - 0 1', '[]', 'w', 'waiting', ?, ?)
             ''', (game_id, white_user, black_user, username, color_choice, time_initial, time_increment,
-                  float(time_initial), float(time_initial), rated))
+                  float(time_initial), float(time_initial), rated, pvp_classic_mode))
+            if pvp_classic_mode:
+                ensure_bermuda_profiles(conn, username, CLASSIC_MODES)
 
             challenge_url = f"{request.host_url}?join={game_id}"
             return jsonify({
@@ -385,7 +411,8 @@ def game_create():
                 "status": "waiting",
                 "creator": username,
                 "color_choice": color_choice,
-                "challenge_url": challenge_url
+                "challenge_url": challenge_url,
+                "rating_kind": "ranked" if rated else ("bermuda" if pvp_classic_mode else "friendly")
             })
 
 @game_bp.route('/game/<game_id>/join', methods=['POST'])
@@ -396,7 +423,7 @@ def game_join(game_id):
 
     with get_db() as conn:
         conn.execute("BEGIN IMMEDIATE")
-        row = conn.execute("SELECT id, white_user, black_user, creator_user, creator_color, status, rated, game_type FROM games WHERE id = ?", (game_id,)).fetchone()
+        row = conn.execute("SELECT id, white_user, black_user, creator_user, creator_color, status, rated, game_type, classic_mode FROM games WHERE id = ?", (game_id,)).fetchone()
         if not row:
             return jsonify({"error": "Partida não encontrada."}), 404
         if row['game_type'] == 'pvp':
@@ -416,10 +443,13 @@ def game_join(game_id):
         creator_user = row['creator_user']
         creator_color = row['creator_color']
         status = row['status']
-        if row['rated']:
+        if row['rated'] or (row['game_type'] == 'pvp' and row['classic_mode']):
             user = conn.execute("SELECT calibrated FROM users WHERE username = ?", (username,)).fetchone()
             if not user or not user['calibrated']:
-                return jsonify({"error": "Conclua duas partidas de calibração antes de entrar em uma partida ranqueada."}), 403
+                return jsonify({"error": "Conclua duas partidas de calibração antes de entrar em uma partida ranqueada ou Bermuda."}), 403
+
+        if row['classic_mode'] and row['game_type'] == 'pvp' and status == 'waiting':
+            ensure_bermuda_profiles(conn, username, CLASSIC_MODES)
 
         if status == 'active':
             player_color = 'white' if white_user == username else ('black' if black_user == username else 'spectator')
@@ -474,10 +504,13 @@ def ranked_queue_join():
     if time_control not in controls:
         return jsonify({"error": "Controle de tempo inválido."}), 400
 
-    min_offset = parse_bounded_integer(data.get('min_offset', -100), -300, 200)
+    min_offset = parse_bounded_integer(data.get('min_offset', -100), -100000, 200)
     max_offset = parse_bounded_integer(data.get('max_offset', 200), -300, 100000)
     if min_offset is None or max_offset is None or max_offset < min_offset:
         return jsonify({"error": "Faixa de rating inválida."}), 400
+    # -9999 ou menos = infinito para baixo; 9999 ou mais = infinito para cima.
+    open_below = min_offset <= -9999
+    open_above = max_offset >= 9999
 
     with get_db() as conn:
         conn.execute("BEGIN IMMEDIATE")
@@ -507,9 +540,9 @@ def ranked_queue_join():
             ON CONFLICT(username) DO UPDATE SET last_seen_at = CURRENT_TIMESTAMP
         """, (username,))
         cleanup_ephemeral_sessions(conn, username)
-        minimum_rating = max(0, user['rating'] + min_offset)
+        minimum_rating = 0 if open_below else max(0, user['rating'] + min_offset)
         maximum_rating = (
-            2147483647 if max_offset >= 9999 else max(0, user['rating'] + max_offset)
+            2147483647 if open_above else max(0, user['rating'] + max_offset)
         )
         existing_queue = conn.execute(
             "SELECT status, time_control, game_id, min_rating, max_rating FROM ranked_queue WHERE username = ?",
@@ -522,19 +555,20 @@ def ranked_queue_join():
             and existing_queue['min_rating'] == minimum_rating
             and existing_queue['max_rating'] == maximum_rating
         ):
+            conn.execute("UPDATE ranked_queue SET heartbeat_at = CURRENT_TIMESTAMP WHERE username = ?", (username,))
             return jsonify({"success": True, "status": "queued", "rating": user['rating']})
         conn.execute("DELETE FROM ranked_queue WHERE username = ?", (username,))
 
         candidate_order = (
             "q.queued_at ASC"
-            if max_offset >= 9999
+            if (open_above or open_below)
             else "ABS(q.rating - ?), q.queued_at ASC"
         )
         candidate_params = (
             time_control, username, minimum_rating, maximum_rating,
             user['rating'], user['rating']
         )
-        if max_offset < 9999:
+        if not (open_above or open_below):
             candidate_params += (user['rating'],)
 
         candidates = conn.execute(f"""
@@ -546,6 +580,7 @@ def ranked_queue_join():
               AND q.rating BETWEEN ? AND ?
               AND q.min_rating <= ? AND q.max_rating >= ?
               AND u.calibrated = 1 AND p.last_seen_at >= datetime('now', '-45 seconds')
+              AND COALESCE(q.heartbeat_at, q.queued_at) >= datetime('now', '-20 seconds')
               AND NOT EXISTS (
                   SELECT 1 FROM games g WHERE g.status = 'active'
                     AND (g.white_user = q.username OR g.black_user = q.username)
@@ -557,8 +592,8 @@ def ranked_queue_join():
         if not opponent:
             conn.execute("""
                 INSERT INTO ranked_queue (
-                    username, rating, min_rating, max_rating, time_control, status, game_id, queued_at
-                ) VALUES (?, ?, ?, ?, ?, 'waiting', NULL, CURRENT_TIMESTAMP)
+                    username, rating, min_rating, max_rating, time_control, status, game_id, queued_at, heartbeat_at
+                ) VALUES (?, ?, ?, ?, ?, 'waiting', NULL, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """, (username, user['rating'], minimum_rating, maximum_rating, time_control))
             return jsonify({"success": True, "status": "queued", "rating": user['rating']})
 
@@ -609,6 +644,7 @@ def ranked_queue_status():
             conn.execute("DELETE FROM ranked_queue WHERE game_id = ?", (queued['game_id'],))
             return jsonify({"status": "idle"})
         if queued['status'] == 'waiting':
+            conn.execute("UPDATE ranked_queue SET heartbeat_at = CURRENT_TIMESTAMP WHERE username = ? AND status = 'waiting'", (username,))
             matched_game = rematch_waiting_player(conn, username)
             if matched_game:
                 return jsonify({"status": "matched", "game_id": matched_game})
@@ -634,6 +670,7 @@ def rematch_waiting_player(conn, username):
           AND q.rating BETWEEN ? AND ?
           AND q.min_rating <= ? AND q.max_rating >= ?
           AND u.calibrated = 1 AND p.last_seen_at >= datetime('now', '-45 seconds')
+          AND COALESCE(q.heartbeat_at, q.queued_at) >= datetime('now', '-20 seconds')
           AND NOT EXISTS (
               SELECT 1 FROM games g WHERE g.status = 'active'
                 AND (g.white_user = q.username OR g.black_user = q.username)
@@ -1039,6 +1076,12 @@ def game_state(game_id):
                 classic_bot_country(classic_bot_number or bot_number) if (classic_bot_number or bot_number > 12)
                 else OFFICIAL_BOT_COUNTRIES.get(bot_number, '')
             )
+        else:
+            # Partida entre jogadores: a bandeira do adversário (vem do país da conta Google dele).
+            opponent_name = black_user if current_user == white_user else white_user
+            if opponent_name:
+                opponent_row = conn.execute("SELECT country_code FROM users WHERE username = ?", (opponent_name,)).fetchone()
+                opponent_country = (opponent_row['country_code'] if opponent_row else '') or ''
         rated = row['rated']
         draw_offered_by = row['draw_offered_by']
         takeback_requested_by = row['takeback_requested_by'] if 'takeback_requested_by' in row.keys() else None
@@ -1085,8 +1128,8 @@ def game_state(game_id):
                     winner, termination_reason = check_timeout_fide(board, 'white')
                     status = 'timeout'
                     conn.execute("UPDATE games SET status = 'timeout', winner = ?, termination_reason = ?, white_time = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (winner, termination_reason, game_id))
-                    if rated and game_type == 'pvp':
-                        update_pvp_rating_transaction(conn, white_user, black_user, winner)
+                    if game_type == 'pvp':
+                        update_pvp_game_ratings(conn, white_user, black_user, winner)
                     rating_change, new_user_rating = update_initial_calibration_result(
                         conn, game_type, white_user, black_user, bot_number,
                         bot_rating or 0, winner
@@ -1109,8 +1152,8 @@ def game_state(game_id):
                     winner, termination_reason = check_timeout_fide(board, 'black')
                     status = 'timeout'
                     conn.execute("UPDATE games SET status = 'timeout', winner = ?, termination_reason = ?, black_time = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (winner, termination_reason, game_id))
-                    if rated and game_type == 'pvp':
-                        update_pvp_rating_transaction(conn, white_user, black_user, winner)
+                    if game_type == 'pvp':
+                        update_pvp_game_ratings(conn, white_user, black_user, winner)
                     rating_change, new_user_rating = update_initial_calibration_result(
                         conn, game_type, white_user, black_user, bot_number,
                         bot_rating or 0, winner
@@ -1152,6 +1195,7 @@ def game_state(game_id):
         "bot_seal": bot_seal,
         "opponent_country": opponent_country,
         "rated": bool(rated),
+        "classic_mode": classic_mode or "",
         "draw_offered_by": draw_offered_by,
         "takeback_requested_by": takeback_requested_by,
         "missions_completed": missions_completed,
@@ -1284,17 +1328,33 @@ def game_move(game_id):
 
         bot_moved = None
         if not is_over and game_type == 'bot':
+            bot_color_name = 'white' if board.turn == chess.WHITE else 'black'
             bot_time = w_time if board.turn == chess.WHITE else b_time
-            bot_think_start = time.time()
-            try:
-                bot_uci, think_ms = get_bot_move_fide(board, bot_rating, remaining_time=bot_time)
-            except RuntimeError:
-                return jsonify({"error": "O motor de xadrez está temporariamente indisponível."}), 503
-            if bot_uci:
-                # BUG CORRIGIDO: o relogio do bot so recebia o incremento e
-                # nunca era descontado pelo tempo real gasto pensando.
-                bot_real_elapsed = max(0.0, time.time() - bot_think_start)
-
+            bot_flagged = time_initial > 0 and bot_time <= 0  # relógio do bot já zerado: nem chega a jogar
+            bot_uci = None
+            if not bot_flagged:
+                bot_think_start = time.time()
+                try:
+                    bot_uci, think_ms = get_bot_move_fide(board, bot_rating, remaining_time=bot_time)
+                except RuntimeError:
+                    return jsonify({"error": "O motor de xadrez está temporariamente indisponível."}), 503
+                # O relógio do bot é descontado pelo tempo real gasto pensando; se a bandeira cai
+                # antes do lance ficar pronto, o bot perde por tempo (regra FIDE 6.9) e o lance não vale.
+                # A espera por uma vaga do motor (servidor cheio) não é culpa do bot: o desconto é limitado
+                # ao tempo de pensar previsto (mínimo de 4 s, ou ~1 s no modo automático).
+                bot_real_elapsed = min(max(0.0, time.time() - bot_think_start), max(BOT_MIN_THINK_SECONDS, think_ms / 1000.0 + 1.0) if think_ms > 1 else 1.0)
+                if bot_uci and time_initial > 0 and bot_real_elapsed >= bot_time:
+                    bot_flagged = True
+                    bot_uci = None
+            if bot_flagged:
+                is_over, end_status = True, 'timeout'
+                winner, reason = check_timeout_fide(board, bot_color_name)
+                if bot_color_name == 'white':
+                    w_time = 0.0
+                else:
+                    b_time = 0.0
+                last_move_time = time.time()
+            elif bot_uci:
                 bot_obj = chess.Move.from_uci(bot_uci)
                 bot_san = board.san(bot_obj)
                 board.push(bot_obj)
@@ -1364,8 +1424,7 @@ def game_move(game_id):
                     conn.execute("UPDATE users SET coins = coins + ? WHERE username = ?", (b_coins, black_user))
 
                 earned_coins = w_coins if username == white_user else b_coins
-                if rated:
-                    update_pvp_rating_transaction(conn, white_user, black_user, winner)
+                update_pvp_game_ratings(conn, white_user, black_user, winner)
         else:
             conn.execute("""
                 UPDATE games SET fen = ?, history = ?, turn = ?, white_time = ?, black_time = ?,
@@ -1445,8 +1504,9 @@ def game_resign(game_id):
             row['bot_rating'] or 0, white_user, black_user, winner
         )
 
-        if game_type == 'pvp' and rated:
-            update_pvp_rating_transaction(conn, white_user, black_user, winner)
+        if game_type == 'pvp':
+
+            update_pvp_game_ratings(conn, white_user, black_user, winner)
 
     return jsonify({"success": True, "status": "resigned", "winner": winner, "reason": reason, "missions_completed": missions_completed, "rating_change": rating_change, "new_rating": new_user_rating, "classic_rating_change": classic_rating_change})
 
@@ -1508,8 +1568,7 @@ def game_draw_offer(game_id):
             if draw_offered_by == opponent:
                 reason = "Empate aceito por mútuo acordo."
                 conn.execute("UPDATE games SET status = 'draw_agreed', winner = 'draw', termination_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (reason, game_id))
-                if rated:
-                    update_pvp_rating_transaction(conn, white_user, black_user, 'draw')
+                update_pvp_game_ratings(conn, white_user, black_user, 'draw')
                 return jsonify({"success": True, "status": "draw_agreed", "reason": reason})
             else:
                 conn.execute("UPDATE games SET draw_offered_by = ? WHERE id = ?", (username, game_id))
@@ -1519,8 +1578,7 @@ def game_draw_offer(game_id):
             if draw_offered_by == opponent:
                 reason = "Empate aceito por mútuo acordo."
                 conn.execute("UPDATE games SET status = 'draw_agreed', winner = 'draw', termination_reason = ?, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (reason, game_id))
-                if rated:
-                    update_pvp_rating_transaction(conn, white_user, black_user, 'draw')
+                update_pvp_game_ratings(conn, white_user, black_user, 'draw')
                 return jsonify({"success": True, "status": "draw_agreed", "reason": reason})
             else:
                 return jsonify({"error": "Nenhuma proposta de empate pendente do adversário."}), 400
@@ -1530,6 +1588,129 @@ def game_draw_offer(game_id):
             return jsonify({"success": True, "message": "Proposta de empate recusada."})
 
     return jsonify({"error": "Ação inválida."}), 400
+
+PGN_RESULTS = {'white': '1-0', 'black': '0-1', 'draw': '1/2-1/2'}
+
+
+@game_bp.route('/game/<game_id>/replay', methods=['GET'])
+@rate_limit(max_requests=40, window_seconds=60)
+def game_replay(game_id):
+    """Partida encerrada para rever lance a lance: lances (SAN), posições (FEN) e PGN completo."""
+    viewer = session.get('username')
+    if not viewer:
+        return jsonify({"error": "Entre na sua conta para rever partidas."}), 401
+    with get_db() as conn:
+        game = conn.execute(
+            "SELECT id, white_user, black_user, game_type, time_initial, time_increment, history, status, winner, "
+            "termination_reason, rated, classic_mode, created_at FROM games WHERE id = ?", (game_id,)
+        ).fetchone()
+    if not game:
+        return jsonify({"error": "Partida não encontrada."}), 404
+    if game['status'] in ('waiting', 'active', 'pending'):
+        return jsonify({"error": "A partida ainda está em andamento."}), 409
+    if game['game_type'] != 'pvp' and viewer not in (game['white_user'], game['black_user']):
+        return jsonify({"error": "Só os jogadores veem o replay desta partida."}), 403
+
+    board = chess.Board()
+    fens, sans, pgn_game = [board.fen()], [], chess.pgn.Game()
+    node = pgn_game
+    try:
+        for item in json.loads(game['history'] or '[]'):
+            move = chess.Move.from_uci(item['uci'])
+            sans.append(board.san(move))
+            board.push(move)
+            fens.append(board.fen())
+            node = node.add_variation(move)
+    except (ValueError, KeyError, TypeError, AssertionError):
+        return jsonify({"error": "O registro desta partida está incompleto."}), 422
+
+    result = PGN_RESULTS.get(game['winner'] or '', '*')
+    played_at = (game['created_at'] or '')[:10].replace('-', '.') or '????.??.??'
+    pgn_game.headers.update({
+        "Event": "Capybara Chess", "Site": "capybarachess.onrender.com", "Date": played_at, "Round": "1",
+        "White": game['white_user'] or '?', "Black": game['black_user'] or '?', "Result": result,
+        "TimeControl": f"{game['time_initial']}+{game['time_increment']}" if game['time_initial'] else "-",
+    })
+    if game['termination_reason']:
+        pgn_game.headers["Termination"] = game['termination_reason']
+    pgn = str(pgn_game)
+    return jsonify({
+        "game": {
+            "id": game['id'], "white": game['white_user'], "black": game['black_user'], "result": result,
+            "winner": game['winner'] or '', "status": game['status'],
+            "termination_reason": game['termination_reason'] or '', "played_at": game['created_at'] or '',
+            "time_initial": game['time_initial'], "time_increment": game['time_increment'],
+            "kind": 'bot' if game['game_type'] == 'bot' else ('ranked' if game['rated'] else ('bermuda' if game['classic_mode'] else 'friendly')),
+        },
+        "moves": sans, "fens": fens, "pgn": pgn
+    })
+
+
+CHAT_MAX_LENGTH = 200
+CHAT_MAX_MESSAGES = 300
+
+
+def _chat_participant(conn, game_id, username):
+    """Devolve (partida, erro): só os dois jogadores de uma partida entre jogadores usam o chat."""
+    game = conn.execute("SELECT white_user, black_user, game_type FROM games WHERE id = ?", (game_id,)).fetchone()
+    if not game:
+        return None, (jsonify({"error": "Partida não encontrada."}), 404)
+    if game['game_type'] != 'pvp':
+        return None, (jsonify({"error": "O chat existe só em partidas entre jogadores."}), 400)
+    if username not in (game['white_user'], game['black_user']):
+        return None, (jsonify({"error": "Só os jogadores da partida podem usar o chat."}), 403)
+    return game, None
+
+
+@game_bp.route('/game/<game_id>/chat', methods=['GET'])
+@rate_limit(max_requests=90, window_seconds=60)
+def game_chat_list(game_id):
+    username = session.get('username')
+    if not username:
+        return jsonify({"error": "Entre na sua conta para usar o chat."}), 401
+    after = parse_bounded_integer(request.args.get('after', 0), 0, 2_147_483_647)
+    if after is None:
+        return jsonify({"error": "Posição do chat inválida."}), 400
+    with get_db() as conn:
+        game, error = _chat_participant(conn, game_id, username)
+        if error:
+            return error
+        rows = conn.execute(
+            "SELECT id, sender, message, created_at FROM game_chat WHERE game_id = ? AND id > ? ORDER BY id ASC LIMIT 100",
+            (game_id, after)
+        ).fetchall()
+    return jsonify({"messages": [
+        {"id": row['id'], "sender": row['sender'], "message": row['message'], "created_at": row['created_at']}
+        for row in rows
+    ]})
+
+
+@game_bp.route('/game/<game_id>/chat', methods=['POST'])
+@rate_limit(max_requests=30, window_seconds=60)
+def game_chat_send(game_id):
+    username = session.get('username')
+    if not username:
+        return jsonify({"error": "Entre na sua conta para usar o chat."}), 401
+    data = request.get_json(silent=True) or {}
+    message = data.get('message')
+    if not isinstance(message, str):
+        return jsonify({"error": "Mensagem inválida."}), 400
+    message = re.sub(r'[\x00-\x1f\x7f\s]+', ' ', message).strip()  # sem caracteres de controle nem espaços repetidos
+    if not message:
+        return jsonify({"error": "Escreva uma mensagem."}), 400
+    if len(message) > CHAT_MAX_LENGTH:
+        return jsonify({"error": f"A mensagem deve ter no máximo {CHAT_MAX_LENGTH} caracteres."}), 400
+    with get_db() as conn:
+        conn.execute("BEGIN IMMEDIATE")
+        game, error = _chat_participant(conn, game_id, username)
+        if error:
+            return error
+        total = conn.execute("SELECT COUNT(*) AS n FROM game_chat WHERE game_id = ?", (game_id,)).fetchone()['n']
+        if total >= CHAT_MAX_MESSAGES:
+            return jsonify({"error": "O chat desta partida atingiu o limite de mensagens."}), 400
+        conn.execute("INSERT INTO game_chat (game_id, sender, message) VALUES (?, ?, ?)", (game_id, username, message))
+    return jsonify({"success": True})
+
 
 @game_bp.route('/game/<game_id>/takeback', methods=['POST'])
 @rate_limit(max_requests=20, window_seconds=60)
@@ -1686,8 +1867,8 @@ def game_claim_timeout(game_id):
             if clock_expired(current_w_time):
                 winner, reason = check_timeout_fide(board, 'white')
                 conn.execute("UPDATE games SET status = 'timeout', winner = ?, termination_reason = ?, white_time = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (winner, reason, game_id))
-                if rated and game_type == 'pvp':
-                    update_pvp_rating_transaction(conn, white_user, black_user, winner)
+                if game_type == 'pvp':
+                    update_pvp_game_ratings(conn, white_user, black_user, winner)
                 rating_change, new_user_rating = update_initial_calibration_result(
                     conn, game_type, white_user, black_user, bot_number,
                     bot_rating, winner
@@ -1706,8 +1887,8 @@ def game_claim_timeout(game_id):
             if clock_expired(current_b_time):
                 winner, reason = check_timeout_fide(board, 'black')
                 conn.execute("UPDATE games SET status = 'timeout', winner = ?, termination_reason = ?, black_time = 0, updated_at = CURRENT_TIMESTAMP WHERE id = ?", (winner, reason, game_id))
-                if rated and game_type == 'pvp':
-                    update_pvp_rating_transaction(conn, white_user, black_user, winner)
+                if game_type == 'pvp':
+                    update_pvp_game_ratings(conn, white_user, black_user, winner)
                 rating_change, new_user_rating = update_initial_calibration_result(
                     conn, game_type, white_user, black_user, bot_number,
                     bot_rating, winner

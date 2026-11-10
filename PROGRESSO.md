@@ -2,6 +2,7 @@
 
 ## Concluído e validado
 
+- Build 31 (celular): bots no automático com 20 s (era 10); bot perde por tempo quando o relógio zera; rating dos bots do modo Bermuda passa a subir/descer; análise de partida removida por completo (código, rota `/analyze_position`, pacote `stockfish` do requirements); `alert/confirm/prompt` do navegador trocados por avisos e diálogos do app (`uiToast`, `uiConfirm`, `uiPrompt`, `uiChoose`); painel de notificações que fecha ao rolar, tocar fora ou no ✕; botões Atualizar com feedback; bolinha vermelha em Missões e Conquistas; menu rola até a área escolhida; "Voltar ao Menu" quando o tempo zera; bandeiras dos dois jogadores na partida; perfil do adversário abre ao tocar no nome/foto; empate com Aceitar/Recusar; desafio por link Amistosa/Bermuda/Rankeada; fila que sai sozinha; infinito para baixo na busca; chat na partida; histórico do perfil com replay e PGN (toque na sua foto no lobby para ver o seu); redução de memória (`ENGINE_SLOTS`, hash de 8 MB, reciclagem do Gunicorn, limpeza do limitador). Validado no navegador em tela de celular e com `tests/test_online_features.py` e `tests/test_time_controls.py`.
 - Toque em dispositivos móveis (`tap-to-move`), correção dos botões de ranking e separação do nome de perfil (`display_name`), conforme estado informado pelo usuário. Não reprocessar.
 - Música de fundo: abrir Configurações inicia ou mantém a trilha quando habilitada e fora de uma partida. Validado no navegador: timer ativo em Configurações e bloqueado durante partida.
 - Modo daltônico: aplicada paleta azul/amarelo de alto contraste e restaurada a preferência salva ao autenticar. Idioma: textos estáticos são reaplicados ao trocar idioma com a tela de partida já montada. Validado no navegador por cores computadas e atualização imediata do botão de lance.
@@ -25,7 +26,7 @@
 
 ### Fase 2: lógica do jogo e IA
 
-- [x] Corrigir a avaliação da máquina e a classificação dos lances; limitar a reflexão do bot a 4 segundos e jogar instantaneamente com 10 segundos ou menos no relógio.
+- [x] Corrigir a avaliação da máquina e a classificação dos lances; limitar a reflexão do bot a 4 segundos e jogar instantaneamente com 20 segundos ou menos no relógio (era 10).
 - [x] Expandir o tutorial para cobrir as funcionalidades restantes do jogo.
 
 ### Fase 3: funcionalidades sociais e backend
@@ -58,7 +59,7 @@
 ### Fase 5: força e reflexão dos bots
 
 - [x] Mapear ratings para 16 tiers Stockfish de 500 a 3000 Elo, com perfil de Skill Level para os seis tiers abaixo da faixa UCI e limitação Elo para os demais.
-- [x] Aumentar o tempo de busca por tier de 300 ms a 3000 ms; usar 1 ms somente quando o relógio autoritativo do bot indicar 10 segundos ou menos.
+- [x] Aumentar o tempo de busca por tier de 300 ms a 3000 ms; usar 1 ms somente quando o relógio autoritativo do bot indicar 20 segundos ou menos (era 10).
 - [x] Remover a escolha aleatória em falha do motor e retornar erro explícito; limitar ratings recebidos ao intervalo dos tiers.
 - [x] Exibir o tier na configuração e na partida, preservando a seleção customizada de força.
 - [x] Validar todos os perfis com motor simulado, tiers de fronteira com Stockfish 17 real e nível 16 normal/rápido com lances legais.

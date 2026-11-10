@@ -14,7 +14,6 @@ Capybara Chess é uma aplicação web de xadrez com partidas contra bots, partid
 - `core/constants.py`: catálogo de cosméticos, selos, missões e outras constantes do domínio.
 - `blueprints/auth.py`: registro, login, logout, OAuth e payload de perfil inicial.
 - `blueprints/game.py`: criação e estado de partidas, lances, relógios, resultados, rating e timeout.
-- `blueprints/analysis.py`: avaliação de posição e classificação de lances.
 - `blueprints/social.py`: rankings, consulta de perfil/histórico, amizades, notificações, mensagens e clubes.
 - `blueprints/user.py`: perfil, bio, avatar, configurações, cosméticos, loja, missões e recompensas.
 - `templates/index.html/index.html`: cliente responsivo, controles, tabuleiro e integração com a API.
@@ -57,7 +56,7 @@ A sessão Flask identifica o usuário autenticado. Endpoints de escrita devem de
 
 1. O motor Stockfish mapeia o rating efetivo para 16 tiers entre 500 e 3000 Elo. Ratings fora dessa faixa são limitados antes de criar a partida.
 2. Os seis tiers até 1250 usam níveis crescentes de `Skill Level`; do tier 7 (1400 Elo) em diante, usam `UCI_LimitStrength`/`UCI_Elo`. Stockfish 17 rejeita `UCI_Elo` abaixo de 1320, por isso os níveis iniciais não usam essa opção.
-3. O tempo normal de busca cresce por tier, de 300 ms a 3000 ms. Com 10 segundos ou menos no relógio do bot, a busca é reduzida a 1 ms.
+3. O tempo normal de busca cresce por tier, de 300 ms a 3000 ms. Com 20 segundos ou menos no relógio do bot, a busca é reduzida a 1 ms.
 4. Se o motor não iniciar ou não produzir um lance legal, a partida retorna erro de motor; não se substitui o resultado por um lance aleatório.
 
 ### Missões e economia

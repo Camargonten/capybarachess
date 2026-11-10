@@ -2,7 +2,9 @@ FROM python:3.14-slim-bookworm
 
 ENV PATH="/usr/games:${PATH}"
 
+# MALLOC_ARENA_MAX=2 evita que a memória das threads do gunicorn fique inchando com o tempo.
 ENV PYTHONDONTWRITEBYTECODE=1 \
+    MALLOC_ARENA_MAX=2 \
     PYTHONUNBUFFERED=1 \
     HOME=/tmp \
     DATABASE_PATH=/tmp/capybara.db \
@@ -36,4 +38,4 @@ COPY static ./static
 USER nobody
 EXPOSE 10000
 
-CMD ["sh", "-c", "exec gunicorn --workers 1 --threads 4 --timeout 120 --bind 0.0.0.0:${PORT:-10000} app:app"]
+CMD ["sh", "-c", "exec gunicorn --workers 1 --threads 4 --timeout 120 --max-requests 1500 --max-requests-jitter 150 --worker-tmp-dir /dev/shm --bind 0.0.0.0:${PORT:-10000} app:app"]

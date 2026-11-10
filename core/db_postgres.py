@@ -222,7 +222,7 @@ class PostgresPool:
 
     IDLE_CHECK_SECONDS = 20
 
-    def __init__(self, dsn: str, max_connections: int = 10):
+    def __init__(self, dsn: str, max_connections: int = 6):
         self._dsn = normalize_dsn(dsn)
         self._pool = psycopg2.pool.ThreadedConnectionPool(
             1, max_connections, self._dsn, cursor_factory=psycopg2.extras.DictCursor,

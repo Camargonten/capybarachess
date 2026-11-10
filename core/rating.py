@@ -252,7 +252,73 @@ def settle_bermuda_rating(conn, game_id, game_type, classic_mode, classic_bot_nu
     )
     record_result(conn, game_id, player_user, 'bermuda', classic_mode, profile['rating'], result['new_rating'],
                   result['phase'], result['step'], result['total'])
+    _settle_bermuda_bot_rating(conn, player_user, classic_mode, classic_bot_number, profile['rating'],
+                               _player_score(winner, player_color))
     return result['delta']
+
+
+def _settle_bermuda_bot_rating(conn, player_user, classic_mode, bot_number, player_rating_before, player_score):
+    """O bot enfrentado também ganha ou perde rating (Elo comum, mesmos K da simulação dos bots)."""
+    bot = conn.execute(
+        "SELECT rating FROM classic_bots WHERE username = ? AND mode = ? AND bot_number = ?",
+        (player_user, classic_mode, bot_number)
+    ).fetchone()
+    if not bot:
+        return
+    before = bot['rating']
+    k = 8 if before >= 2500 else (14 if before >= 1800 else 28)
+    expected = expected_score(before, player_rating_before)
+    after = max(200, _round(before + k * ((1.0 - player_score) - expected)))
+    conn.execute(
+        "UPDATE classic_bots SET rating = ? WHERE username = ? AND mode = ? AND bot_number = ?",
+        (after, player_user, classic_mode, bot_number)
+    )
+
+
+def ensure_bermuda_profiles(conn, username, valid_modes):
+    """Garante o rating Bermuda (Bullet/Blitz/Rápida) de um jogador, com a mesma semente usada no perfil clássico."""
+    user = conn.execute("SELECT rating, calibrated FROM users WHERE username = ?", (username,)).fetchone()
+    seed_rating = user['rating'] if user and user['calibrated'] else 1200
+    for mode in valid_modes:
+        conn.execute("INSERT OR IGNORE INTO classic_profiles (username, mode, rating) VALUES (?, ?, ?)",
+                     (username, mode, seed_rating))
+
+
+def settle_bermuda_pvp_rating(conn, game_id, classic_mode, white_user, black_user, winner, valid_modes):
+    """Partida Bermuda entre dois jogadores: o rating Bermuda do ritmo (Bullet/Blitz/Rápida) dos dois é atualizado."""
+    if classic_mode not in valid_modes or not winner or not white_user or not black_user:
+        return 0
+    if _is_bot(white_user) or _is_bot(black_user):
+        return 0
+    for user in (white_user, black_user):
+        ensure_bermuda_profiles(conn, user, valid_modes)
+    profiles = {
+        user: conn.execute(
+            "SELECT rating, calib_base_rating, calib2_games FROM classic_profiles WHERE username = ? AND mode = ?",
+            (user, classic_mode)
+        ).fetchone()
+        for user in (white_user, black_user)
+    }
+    deltas = {}
+    for user, color in ((white_user, 'white'), (black_user, 'black')):
+        previous = _already_recorded(conn, game_id, user, 'bermuda')
+        if previous:
+            deltas[user] = previous['delta']
+            continue
+        opponent = black_user if user == white_user else white_user
+        profile = profiles[user]
+        # Os dois são atualizados com o rating que o adversário tinha ANTES da partida.
+        result = compute_update(profile['rating'], profile['calib_base_rating'] or 0, profile['calib2_games'] or 0,
+                                profiles[opponent]['rating'], _player_score(winner, color))
+        conn.execute(
+            """UPDATE classic_profiles SET rating = ?, games_played = games_played + 1,
+                      calib_base_rating = ?, calib2_games = ? WHERE username = ? AND mode = ?""",
+            (result['new_rating'], result['base_rating'], result['calib2_games'], user, classic_mode)
+        )
+        record_result(conn, game_id, user, 'bermuda', classic_mode, profile['rating'], result['new_rating'],
+                      result['phase'], result['step'], result['total'])
+        deltas[user] = result['delta']
+    return deltas.get(white_user, 0)
 
 
 def describe_ratings(conn, game_type, classic_mode, bot_number, bot_rating, white_user, black_user, current_user):
@@ -271,10 +337,16 @@ def describe_ratings(conn, game_type, classic_mode, bot_number, bot_rating, whit
             "SELECT rating, calib_base_rating, calib2_games FROM classic_profiles WHERE username = ? AND mode = ?",
             (current_user, classic_mode)
         ).fetchone()
+        opp_rating = bot_rating
+        if game_type == 'pvp' and opponent:
+            opp_profile = conn.execute(
+                "SELECT rating FROM classic_profiles WHERE username = ? AND mode = ?", (opponent, classic_mode)
+            ).fetchone()
+            opp_rating = opp_profile['rating'] if opp_profile else None
         return {
             "kind": "bermuda", "mode": classic_mode,
             "my_rating": profile['rating'] if profile else user['rating'],
-            "opp_rating": bot_rating,
+            "opp_rating": opp_rating,
             "calibrating": bool(profile) and (profile['calib2_games'] or 0) < CALIB2_GAMES,
         }
     if game_type == 'bot':

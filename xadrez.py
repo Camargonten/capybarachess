@@ -44,7 +44,7 @@ PUBLIC_ENDPOINTS = {
     "google_login", "google_callback",
     "social.ranking_online",
     "game.game_state", "game.game_create", "game.game_join", "game.game_move",
-    "game.game_resign", "game.game_draw_offer", "game.game_takeback", "game.game_claim_timeout",
+    "game.game_resign", "game.game_draw_offer", "game.game_takeback", "game.game_claim_timeout"
 }
 
 OWNER_FIELDS = {

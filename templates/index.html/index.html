@@ -23,8 +23,8 @@
         .choice.active { background: var(--gold); color: #1c211c; border-color: #f8d682; }
         .board-wrap { position: relative; }
         #arrow-layer { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
-        .analysis-arrow { position: absolute; height: 7px; background: rgba(207, 81, 69, .85); border-radius: 4px; transform-origin: 0 50%; }
-        .analysis-arrow::after { content: ''; position: absolute; right: -5px; top: -5px; border-left: 12px solid rgba(207, 81, 69, .85); border-top: 8px solid transparent; border-bottom: 8px solid transparent; }
+        .board-arrow { position: absolute; height: 7px; background: rgba(207, 81, 69, .85); border-radius: 4px; transform-origin: 0 50%; }
+        .board-arrow::after { content: ''; position: absolute; right: -5px; top: -5px; border-left: 12px solid rgba(207, 81, 69, .85); border-top: 8px solid transparent; border-bottom: 8px solid transparent; }
         .white-1e1d7 { background-color: #f0d9b5; }
         .black-3c85d { background-color: #b58863; }
         .tutorial-progress { height: 6px; border-radius: 9999px; background: #1e293b; overflow: hidden; }
@@ -73,6 +73,36 @@
         .effect-menu { animation: menu-flash .22s ease-out; }
         #connection-toast { position: fixed; right: 16px; bottom: 16px; z-index: 50; max-width: 320px; padding: 12px 16px; border-radius: 8px; background: #17654d; color: #fff; box-shadow: 0 10px 25px rgba(0,0,0,.35); transition: opacity .3s, transform .3s; }
         #connection-toast.offline { background: #7a3d26; }
+
+        /* Bolinha vermelha de pendências no menu (missões para resgatar, conquistas novas) */
+        .menu-badge { position: absolute; top: 4px; right: 4px; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 999px; background: #dc2626; color: #fff; font-size: 11px; font-weight: 800; line-height: 1; display: flex; align-items: center; justify-content: center; box-shadow: 0 0 0 2px #0f172a, 0 0 10px rgba(220,38,38,.55); pointer-events: none; }
+        .menu-badge.hidden { display: none; }
+        /* Avisos e diálogos do app (no lugar do alert/confirm/prompt do navegador) */
+        #ui-toast-stack { position: fixed; left: 0; right: 0; top: calc(env(safe-area-inset-top, 0px) + 10px); z-index: 90; display: flex; flex-direction: column; align-items: center; gap: 8px; padding: 0 12px; pointer-events: none; }
+        .ui-toast { pointer-events: auto; display: flex; align-items: flex-start; gap: 10px; width: 100%; max-width: 420px; padding: 12px 14px; border-radius: 14px; background: #0f172a; border: 1px solid #334155; border-left: 4px solid #38bdf8; color: #e2e8f0; font-size: 14px; line-height: 1.4; box-shadow: 0 12px 30px rgba(0,0,0,.45); animation: ui-toast-in .22s ease-out; }
+        .ui-toast.ok { border-left-color: #10b981; }
+        .ui-toast.warn { border-left-color: #f59e0b; }
+        .ui-toast.error { border-left-color: #ef4444; }
+        .ui-toast-icon { font-size: 17px; line-height: 1.25; }
+        .ui-toast-text { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+        .ui-toast-close { min-width: 28px; min-height: 28px; margin: -4px -6px -4px 0; border-radius: 8px; color: #94a3b8; font-size: 14px; }
+        .ui-dialog { position: fixed; inset: 0; z-index: 95; display: flex; align-items: flex-end; justify-content: center; padding: 12px; padding-bottom: calc(12px + env(safe-area-inset-bottom, 0px)); background: rgba(2,6,23,.72); }
+        .ui-dialog.hidden { display: none; }
+        .ui-dialog-card { width: 100%; max-width: 420px; max-height: 90vh; overflow-y: auto; background: #0f172a; border: 1px solid #334155; border-radius: 18px; padding: 18px; box-shadow: 0 20px 50px rgba(0,0,0,.55); animation: ui-sheet-in .2s ease-out; }
+        .ui-dialog-message { color: #e2e8f0; font-size: 15px; line-height: 1.45; margin: 0 0 14px; white-space: pre-line; overflow-wrap: anywhere; }
+        .ui-dialog-input { width: 100%; box-sizing: border-box; min-height: 46px; padding: 10px 12px; margin-bottom: 14px; border-radius: 12px; background: #020617; border: 1px solid #475569; color: #f8fafc; font-size: 16px; }
+        .ui-dialog-input:focus { outline: 2px solid #f59e0b; outline-offset: 1px; }
+        .ui-dialog-choices { display: flex; flex-direction: column; gap: 8px; margin-bottom: 12px; }
+        .ui-dialog-choices.hidden { display: none; }
+        .ui-dialog-actions { display: flex; gap: 10px; }
+        .ui-btn { flex: 1; min-height: 46px; padding: 0 16px; border-radius: 12px; font-weight: 700; font-size: 14px; }
+        .ui-btn-ghost { background: #1e293b; color: #cbd5e1; }
+        .ui-btn-primary { background: #d97706; color: #fff; }
+        .ui-btn-danger { background: #b91c1c; color: #fff; }
+        @media (min-width: 640px) { .ui-dialog { align-items: center; } }
+        @keyframes ui-toast-in { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
+        @keyframes ui-sheet-in { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: none; } }
+        @media (prefers-reduced-motion: reduce) { .ui-toast, .ui-dialog-card { animation: none; } }
         @keyframes purchase-flash { 50% { box-shadow: inset 0 0 90px #d69629; } }
         @keyframes achievement-flash { 50% { box-shadow: inset 0 0 110px #e8ae3e; } }
         @keyframes menu-flash { 50% { filter: brightness(1.25); } }
@@ -176,8 +206,8 @@
         }
 
         /* Modo para Daltônicos (Alto Contraste) */
-        .colorblind-mode #board .white-1e1d7, .colorblind-mode #analysis-board .white-1e1d7 { background-color: #f0e442 !important; color: #0072b2 !important; }
-        .colorblind-mode #board .black-3c85d, .colorblind-mode #analysis-board .black-3c85d { background-color: #0072b2 !important; color: #f0e442 !important; }
+        .colorblind-mode #board .white-1e1d7 { background-color: #f0e442 !important; color: #0072b2 !important; }
+        .colorblind-mode #board .black-3c85d { background-color: #0072b2 !important; color: #f0e442 !important; }
         /* Skins de peças: cada skin tem seu conjunto de SVGs em static/skins/<nome>/ (mini_update_14) */
         .skin-mini-board { display: grid; grid-template-columns: repeat(8, 1fr); width: 100%; max-width: 360px; border-radius: 8px; overflow: hidden; border: 2px solid #475569; }
         .skin-mini-board > div { aspect-ratio: 1 / 1; }
@@ -188,37 +218,6 @@
         .skin-pair img { height: 92%; width: 50%; object-fit: contain; }
         .skin-lock { font-size: 10px; padding: 1px 6px; border-radius: 9999px; font-weight: 700; }
 
-        /* Barra de Avaliação da Análise */
-        .eval-bar-bg {
-            width: 16px;
-            height: 100%;
-            min-height: 280px;
-            background: #0f172a;
-            border-radius: 9999px;
-            overflow: hidden;
-            border: 1px solid #475569;
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            justify-content: flex-end;
-        }
-        .eval-bar-fill {
-            width: 100%;
-            background: #ffffff;
-            transition: height 0.35s cubic-bezier(0.4, 0, 0.2, 1);
-        }
-        .eval-bar-text {
-            position: absolute;
-            inset: 0;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 9px;
-            font-family: monospace;
-            font-weight: 800;
-            color: #0f172a;
-            pointer-events: none;
-        }
 
         /* Animação de Espada de Xeque-Mate */
         @keyframes sword-slash {
@@ -330,7 +329,7 @@
     <!-- DASHBOARD / LOBBY PRINCIPAL -->
     <div id="lobby-screen" class="hidden w-full max-w-4xl flex flex-col gap-6 my-auto">
         <div id="lobby-header-card" class="surface p-4 rounded-lg flex flex-col md:flex-row justify-between items-center gap-3">
-            <div class="flex items-center gap-3">
+            <div class="flex items-center gap-3 cursor-pointer" onclick="openPlayerProfile(encodeURIComponent(userData.username))" role="button" title="Meu perfil e histórico de partidas">
                 <div class="w-12 h-12 bg-amber-600 rounded-full flex items-center justify-center font-bold text-xl overflow-hidden" id="user-avatar-initial"><span id="user-avatar-letter">C</span><img id="user-avatar-image" class="profile-photo hidden" alt="Foto de perfil"></div>
                 <div>
                     <div class="flex items-center gap-2">
@@ -349,12 +348,12 @@
                 </select>
                 <div class="relative"><button id="language-trigger" onclick="toggleLanguageMenu('lobby')" class="bg-slate-900 border border-slate-700 px-2 py-1.5 rounded-lg text-xs">Português v</button><div id="lobby-language-menu" class="hidden absolute right-0 z-20 mt-1 w-32 bg-slate-900 border border-slate-700 rounded-lg overflow-hidden"><button onclick="setLanguage('pt')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">Português</button><button onclick="setLanguage('en')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">English</button><button onclick="setLanguage('es')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">Español</button><button onclick="setLanguage('fr')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">Français</button><button onclick="setLanguage('ru')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">Русский</button><button onclick="setLanguage('de')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">Deutsch</button><button onclick="setLanguage('hi')" class="block w-full text-left p-2 text-xs hover:bg-slate-700">हिन्दी</button></div></div>
                 <div class="relative">
-                    <button id="notifications-toggle" onclick="toggleNotifications()" aria-label="Notificações" title="Notificações" class="relative bg-slate-900 border border-slate-700 px-2.5 py-1.5 rounded-lg text-sm">
+                    <button id="notifications-toggle" onclick="toggleNotifications()" aria-expanded="false" aria-label="Notificações" title="Notificações" class="relative bg-slate-900 border border-slate-700 px-2.5 py-1.5 rounded-lg text-sm">
                         <span aria-hidden="true">🔔</span><span id="notifications-count" class="hidden absolute -right-1 -top-1 min-w-4 rounded-full bg-red-600 px-1 text-[9px] font-bold text-white">0</span>
                     </button>
-                    <div id="notifications-panel" class="hidden fixed inset-x-3 top-16 z-40 max-h-[75vh] overflow-y-auto rounded-lg border border-slate-700 bg-slate-900 p-3 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-72 sm:max-h-none sm:overflow-visible">
-                        <div class="mb-2 flex items-center justify-between"><strong class="text-xs text-amber-300">Notificações</strong><button onclick="refreshNotifications()" title="Atualizar notificações" class="text-xs text-slate-400 hover:text-white">↻</button></div>
-                        <div id="notifications-list" class="flex max-h-72 flex-col gap-2 text-xs"><span class="text-slate-400">Carregando...</span></div>
+                    <div id="notifications-panel" role="dialog" aria-label="Notificações" class="hidden fixed inset-x-3 top-16 z-40 flex max-h-[70vh] flex-col rounded-xl border border-slate-700 bg-slate-900 p-3 shadow-xl sm:absolute sm:inset-x-auto sm:right-0 sm:top-auto sm:mt-2 sm:w-72 sm:max-h-[28rem]">
+                        <div class="mb-2 flex shrink-0 items-center justify-between gap-2"><strong class="text-xs text-amber-300">Notificações</strong><div class="flex items-center gap-1"><button onclick="runRefresh(this, refreshNotifications, 'Notificações atualizadas.')" title="Atualizar notificações" aria-label="Atualizar notificações" class="min-h-9 min-w-9 rounded-lg text-sm text-slate-300 hover:text-white">↻</button><button onclick="closeNotifications()" title="Fechar" aria-label="Fechar notificações" class="min-h-9 min-w-9 rounded-lg text-sm text-slate-300 hover:text-white">✕</button></div></div>
+                        <div id="notifications-list" class="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto overscroll-contain text-xs"><span class="text-slate-400">Carregando...</span></div>
                     </div>
                 </div>
                 <button id="install-app-btn" onclick="promptInstallApp()" aria-label="Instalar aplicativo" title="Instalar aplicativo" class="hidden bg-slate-900 border border-slate-700 px-2.5 py-1.5 rounded-lg text-sm">⬇️</button>
@@ -372,13 +371,13 @@
 
         <div class="flex flex-col md:flex-row gap-4">
         <nav class="surface w-full md:w-36 shrink-0 flex flex-col gap-2 p-2 self-start" aria-label="Menu principal">
-            <button id="menu-bots" onclick="playMenuSound(); showLobbyArea('bots')" class="choice active border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">♟</span> <span id="menu-bots-label">Bots</span></button>
-            <button id="menu-play" onclick="playMenuSound(); showLobbyArea('play')" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">▶</span> <span id="menu-play-label">Partidas</span></button>
-            <button id="menu-ranks" onclick="playMenuSound(); showLobbyArea('ranks')" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">#</span> <span id="menu-ranks-label">Ranks</span></button>
-            <button id="menu-clubs" onclick="playMenuSound(); showLobbyArea('clubs')" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">🛡️</span> <span id="menu-clubs-label">Clubes</span></button>
+            <button id="menu-bots" onclick="playMenuSound(); showLobbyArea('bots', true)" class="choice active border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">♟</span> <span id="menu-bots-label">Bots</span></button>
+            <button id="menu-play" onclick="playMenuSound(); showLobbyArea('play', true)" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">▶</span> <span id="menu-play-label">Partidas</span></button>
+            <button id="menu-ranks" onclick="playMenuSound(); showLobbyArea('ranks', true)" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">#</span> <span id="menu-ranks-label">Ranks</span></button>
+            <button id="menu-clubs" onclick="playMenuSound(); showLobbyArea('clubs', true)" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">🛡️</span> <span id="menu-clubs-label">Clubes</span></button>
             <button id="menu-shop" onclick="playMenuSound(); openShop()" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">♛</span> <span id="menu-shop-label">Loja</span></button>
-            <button id="menu-missions" onclick="playMenuSound(); openMissions()" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">★</span> <span id="menu-missions-label">Missões</span></button>
-            <button id="menu-achievements" onclick="playMenuSound(); showLobbyArea('achievements')" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">🏆</span> <span id="menu-achievements-label">Conquistas</span></button>
+            <button id="menu-missions" onclick="playMenuSound(); openMissions()" class="choice relative border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">★</span> <span id="menu-missions-label">Missões</span><span id="menu-missions-badge" class="menu-badge hidden" aria-hidden="true">0</span></button>
+            <button id="menu-achievements" onclick="playMenuSound(); showLobbyArea('achievements', true)" class="choice relative border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">🏆</span> <span id="menu-achievements-label">Conquistas</span><span id="menu-achievements-badge" class="menu-badge hidden" aria-hidden="true">0</span></button>
             <button id="menu-friends" onclick="playMenuSound(); openFriends()" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">☻</span> <span id="menu-friends-label">Amigos</span></button>
             <button id="menu-guide" onclick="playMenuSound(); showTutorial(false)" class="choice border border-slate-600 p-3 rounded-lg text-left text-xs font-bold"><span aria-hidden="true">?</span> <span id="menu-guide-label">Guia</span></button>
         </nav>
@@ -512,6 +511,7 @@
                             <div>
                                 <span class="text-[10px] text-slate-400">Mínimo abaixo:</span>
                                 <select id="matchmake-min-offset" onchange="updateMatchmakeFilterUI()" class="bg-slate-900 border border-slate-700 p-1.5 rounded-lg w-full text-slate-200">
+                                    <option value="-9999">∞ Elo (qualquer abaixo)</option>
                                     <option value="-200">-200 Elo</option>
                                     <option value="-100" selected>-100 Elo</option>
                                     <option value="-50">-50 Elo</option>
@@ -554,9 +554,18 @@
                 <!-- Painel específico de Desafio Online -->
                 <div id="play-pvp-config" class="hidden flex flex-col gap-2 bg-slate-900/60 p-3 rounded-lg border border-blue-900/40">
                     <p id="play-pvp-description" class="text-xs text-blue-300"></p>
+                    <div id="link-rating-kind" class="hidden flex flex-col gap-1.5">
+                        <label class="text-[10px] font-bold text-slate-300">Tipo da partida do link:</label>
+                        <div class="grid grid-cols-3 gap-2">
+                            <button id="link-kind-friendly" onclick="setLinkRatingKind('friendly')" class="choice active border border-slate-600 p-2 rounded-lg text-[11px] font-bold">🤝 Amistosa</button>
+                            <button id="link-kind-bermuda" onclick="setLinkRatingKind('bermuda')" class="choice border border-slate-600 p-2 rounded-lg text-[11px] font-bold">🌴 Bermuda</button>
+                            <button id="link-kind-ranked" onclick="setLinkRatingKind('ranked')" class="choice border border-slate-600 p-2 rounded-lg text-[11px] font-bold">🏆 Rankeada</button>
+                        </div>
+                    </div>
                     <div id="ranked-matchmaking-filter" class="hidden grid grid-cols-2 gap-2 text-xs">
                         <label class="text-[10px] text-slate-400">Mínimo abaixo:
                             <select id="ranked-min-offset" onchange="updateRankedMatchmakeFilterUI()" class="mt-1 bg-slate-900 border border-slate-700 p-1.5 rounded-lg w-full text-slate-200">
+                                <option value="-9999">∞ Elo (qualquer abaixo)</option>
                                 <option value="-300">-300 Elo</option>
                                 <option value="-200">-200 Elo</option>
                                 <option value="-100" selected>-100 Elo</option>
@@ -691,7 +700,7 @@
             <div id="ranks-area" class="hidden surface p-5 rounded-lg flex flex-col gap-4">
                 <div class="flex items-center justify-between border-b border-slate-700 pb-2">
                     <h3 class="text-lg font-bold text-amber-400">Classificação & Ranks</h3>
-                    <button onclick="refreshActiveRanking()" class="text-xs text-amber-300 hover:text-amber-200">Atualizar</button>
+                    <button onclick="runRefresh(this, refreshActiveRanking, 'Ranking atualizado.')" class="min-h-9 px-2 text-xs text-amber-300 hover:text-amber-200">Atualizar</button>
                 </div>
 
                 <!-- Abas Online vs Offline -->
@@ -728,7 +737,7 @@
             </div>
 
             <div id="missions-area" class="hidden surface p-5 rounded-lg flex flex-col gap-3">
-                <div class="flex items-center justify-between gap-2"><h3 class="text-lg font-bold text-amber-400">Missões Offline</h3><button onclick="loadMissions()" class="text-xs text-amber-300">Atualizar</button></div>
+                <div class="flex items-center justify-between gap-2"><h3 class="text-lg font-bold text-amber-400">Missões Offline</h3><button onclick="runRefresh(this, loadMissions, 'Missões atualizadas.')" class="min-h-9 px-2 text-xs text-amber-300">Atualizar</button></div>
                 <button id="btn-claim-all" onclick="claimAllMissions(this)" disabled class="min-h-[44px] rounded-lg bg-amber-600 px-4 text-sm font-bold hover:bg-amber-500 disabled:cursor-not-allowed disabled:opacity-40">Coletar tudo</button>
                 <p id="missions-feedback" class="text-xs text-emerald-300" role="status" aria-live="polite"></p>
                 <div id="missions-list" class="max-h-96 overflow-y-auto flex flex-col gap-2"></div>
@@ -791,10 +800,10 @@
                 </div>
             </div>
             <div>
-                <div class="flex items-center justify-between mb-2"><h4 class="text-sm font-bold text-amber-400">Seus amigos</h4><button onclick="loadFriends()" class="text-xs text-slate-400 hover:text-white">Atualizar</button></div>
+                <div class="flex items-center justify-between mb-2"><h4 class="text-sm font-bold text-amber-400">Seus amigos</h4><button onclick="runRefresh(this, loadFriends, 'Amigos atualizados.')" class="min-h-9 px-2 text-xs text-slate-400 hover:text-white">Atualizar</button></div>
                 <div id="friends-list" class="flex flex-col gap-2"></div>
                 <div class="mt-4 border-t border-slate-800 pt-3">
-                    <div class="mb-2 flex items-center justify-between gap-2"><h4 class="text-sm font-bold text-sky-300">Partidas ao vivo</h4><button onclick="loadFriendActiveGames()" title="Atualizar partidas ao vivo" class="text-xs text-slate-400 hover:text-white">Atualizar</button></div>
+                    <div class="mb-2 flex items-center justify-between gap-2"><h4 class="text-sm font-bold text-sky-300">Partidas ao vivo</h4><button onclick="runRefresh(this, loadFriendActiveGames, 'Partidas ao vivo atualizadas.')" title="Atualizar partidas ao vivo" class="min-h-9 px-2 text-xs text-slate-400 hover:text-white">Atualizar</button></div>
                     <div id="friend-active-games" class="flex max-h-48 flex-col gap-2 overflow-y-auto text-xs" aria-live="polite"></div>
                 </div>
             </div>
@@ -828,6 +837,30 @@
             <div class="flex flex-wrap items-center justify-between gap-2"><span id="player-profile-friend-status" class="text-xs text-slate-400"></span><div class="flex flex-wrap gap-2"><button id="player-profile-add-friend" onclick="sendProfileFriendRequest()" class="hidden rounded bg-amber-600 px-3 py-2 text-xs font-bold text-white hover:bg-amber-500">Adicionar amigo</button><button id="player-profile-send-gift" onclick="openGiftModal()" class="hidden rounded bg-fuchsia-700 px-3 py-2 text-xs font-bold text-white hover:bg-fuchsia-600">🎁 Enviar presente</button><button id="player-profile-challenge" onclick="sendDirectChallenge(encodeURIComponent(viewedPlayerName))" class="hidden rounded bg-sky-700 px-3 py-2 text-xs font-bold text-white hover:bg-sky-600">Desafiar para partida</button></div></div>
             <p id="player-profile-challenge-feedback" class="text-xs text-slate-400" role="status" aria-live="polite"></p>
             <section><h3 class="mb-2 border-b border-slate-800 pb-2 text-sm font-bold text-amber-400">Histórico de partidas</h3><div id="player-profile-history" class="flex max-h-64 flex-col gap-2 overflow-y-auto"></div></section>
+        </div>
+    </div>
+
+    <!-- REPLAY DE PARTIDA (histórico do perfil): tabuleiro, lances e PGN -->
+    <div id="game-replay-modal" class="hidden fixed inset-0 z-[65] flex items-end justify-center bg-black/85 sm:items-center sm:p-4" role="dialog" aria-modal="true" aria-labelledby="replay-title">
+        <div class="surface flex max-h-[96vh] w-full max-w-lg flex-col gap-3 overflow-y-auto rounded-t-2xl border border-slate-700 p-4 sm:rounded-2xl" style="padding-bottom: calc(1rem + env(safe-area-inset-bottom, 0px));">
+            <div class="flex items-start justify-between gap-2">
+                <div class="min-w-0"><h2 id="replay-title" class="truncate text-sm font-bold text-amber-300"></h2><p id="replay-subtitle" class="text-[11px] text-slate-400"></p></div>
+                <button onclick="closeGameReplay()" aria-label="Fechar replay" class="min-h-[44px] min-w-[44px] shrink-0 rounded bg-slate-800 text-slate-300 hover:bg-slate-700">✕</button>
+            </div>
+            <div id="replay-board" class="mx-auto w-full max-w-[420px]"></div>
+            <div class="grid grid-cols-5 gap-2">
+                <button onclick="replayGo(0)" aria-label="Início" class="min-h-[44px] rounded-lg bg-slate-700 text-base font-bold hover:bg-slate-600">⏮</button>
+                <button onclick="replayStep(-1)" aria-label="Lance anterior" class="min-h-[44px] rounded-lg bg-slate-700 text-base font-bold hover:bg-slate-600">◀</button>
+                <button id="replay-auto" onclick="toggleReplayAuto()" aria-label="Reproduzir" class="min-h-[44px] rounded-lg bg-amber-600 text-base font-bold hover:bg-amber-500">▶</button>
+                <button onclick="replayStep(1)" aria-label="Próximo lance" class="min-h-[44px] rounded-lg bg-slate-700 text-base font-bold hover:bg-slate-600">▶|</button>
+                <button onclick="replayGo(Infinity)" aria-label="Final" class="min-h-[44px] rounded-lg bg-slate-700 text-base font-bold hover:bg-slate-600">⏭</button>
+            </div>
+            <p id="replay-move-label" class="text-center text-xs text-slate-300" aria-live="polite"></p>
+            <div id="replay-moves" class="flex max-h-28 flex-wrap gap-1 overflow-y-auto text-[11px]"></div>
+            <div class="flex flex-col gap-2 border-t border-slate-700 pt-3">
+                <div class="flex items-center justify-between gap-2"><h3 class="text-xs font-bold text-slate-300">PGN da partida</h3><button onclick="copyReplayPgn()" class="min-h-[40px] rounded-lg bg-slate-700 px-3 text-xs font-semibold hover:bg-slate-600">Copiar PGN</button></div>
+                <textarea id="replay-pgn" readonly rows="5" class="w-full resize-none rounded-lg border border-slate-700 bg-slate-950 p-2 font-mono text-[11px] text-slate-300"></textarea>
+            </div>
         </div>
     </div>
 
@@ -1111,6 +1144,7 @@
                     </div>
                     <div class="flex flex-col min-w-0">
                         <div class="flex items-center gap-1.5">
+                            <img id="match-player-flag" class="hidden h-3.5 w-5 shrink-0 rounded-sm object-cover shadow" alt="">
                             <span id="match-player-name" class="font-bold text-sm text-slate-100 truncate max-w-[170px] sm:max-w-[240px]">Você</span>
                             <span id="match-player-seal" class="text-[10px] px-1 rounded bg-red-600 font-bold hidden">C</span>
                         </div>
@@ -1164,10 +1198,24 @@
                         <button onclick="respondTakeback('decline')" class="min-h-[44px] flex-1 rounded-lg bg-red-700 px-4 text-sm font-bold hover:bg-red-600">✗ Recusar</button>
                     </div>
                 </div>
+                <div id="draw-offer-bar" class="hidden flex flex-col gap-2 rounded-lg border border-sky-500/50 bg-sky-950/40 p-3">
+                    <span class="text-center text-xs font-bold text-sky-200">🤝 O adversário propôs empate. Aceitar?</span>
+                    <div class="flex gap-2">
+                        <button onclick="respondDraw('accept')" class="min-h-[44px] flex-1 rounded-lg bg-green-700 px-4 text-sm font-bold hover:bg-green-600">✓ Aceitar empate</button>
+                        <button onclick="respondDraw('decline')" class="min-h-[44px] flex-1 rounded-lg bg-red-700 px-4 text-sm font-bold hover:bg-red-600">✗ Recusar</button>
+                    </div>
+                </div>
+                <div id="timeout-back-bar" class="hidden flex flex-col gap-2 rounded-lg border border-red-500/50 bg-red-950/40 p-3">
+                    <span id="timeout-back-text" class="text-center text-xs font-bold text-red-200">⏱️ Seu tempo acabou. Você perdeu a partida.</span>
+                    <button onclick="leaveAfterTimeout()" class="min-h-[44px] rounded-lg bg-slate-700 px-4 text-sm font-bold text-white hover:bg-slate-600">Voltar ao Menu</button>
+                </div>
                 <div id="first-move-timer" class="hidden items-center gap-2 rounded-lg border border-orange-400/40 bg-orange-950/60 px-3 py-2 text-xs text-orange-100" role="timer" aria-live="polite">
                     <span aria-hidden="true">⏱️</span>
                     <span id="first-move-timer-text" class="flex-1">Faça seu primeiro lance</span>
                     <strong id="first-move-timer-count" class="tabular-nums text-sm">20</strong>
+                </div>
+                <div id="game-chat-bar" class="hidden">
+                    <button id="btn-chat-toggle" onclick="toggleGameChat()" class="relative min-h-[44px] w-full rounded-lg border border-slate-600 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 hover:bg-slate-700">💬 Chat da partida<span id="game-chat-unread-badge" class="menu-badge hidden" aria-hidden="true">0</span></button>
                 </div>
                 <div id="in-game-controls" class="flex flex-wrap gap-2">
                     <button id="btn-takeback" onclick="takeBackMove()" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg text-xs font-semibold flex-1">Voltar Lance</button>
@@ -1178,9 +1226,6 @@
 
                 <div id="post-game-controls" class="hidden flex flex-col gap-2">
                     <button id="btn-rematch" onclick="startRematch()" class="bg-amber-600 hover:bg-amber-500 p-2.5 rounded-lg text-xs font-bold text-white shadow">Jogar Revanche</button>
-                    <button id="btn-analyze-game" onclick="openGameAnalysis()" class="bg-emerald-700 hover:bg-emerald-600 p-2.5 rounded-lg text-xs font-bold text-white shadow flex items-center justify-center gap-1.5">
-                        <span>🔍</span> Analisar Partida (Stockfish)
-                    </button>
                     <div class="grid grid-cols-2 gap-2">
                         <button id="btn-copy-pgn" onclick="copyPGN()" class="bg-slate-700 hover:bg-slate-600 p-2 rounded-lg text-xs font-semibold">Copiar PGN</button>
                         <button id="btn-return-menu" onclick="backToLobby()" class="bg-slate-700 hover:bg-slate-600 p-2 rounded-lg text-xs font-semibold">Voltar ao Menu</button>
@@ -1209,49 +1254,16 @@
         </div>
     </div>
 
-    <!-- MODAL DE ANÁLISE TÁTICA PÓS-PARTIDA -->
-    <div id="analysis-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/80 backdrop-blur-sm p-4">
-        <div class="surface p-5 rounded-2xl max-w-4xl w-full flex flex-col lg:flex-row gap-5 max-h-[92vh] overflow-y-auto border border-emerald-500/40 shadow-2xl">
-            <!-- Coluna Tabuleiro + Barra de Avaliação -->
-            <div class="flex gap-3 items-center justify-center shrink-0">
-                <div class="eval-bar-bg">
-                    <div id="analysis-eval-fill" class="eval-bar-fill" style="height: 50%;"></div>
-                    <div id="analysis-eval-text" class="eval-bar-text">0.0</div>
-                </div>
-                <div class="w-[min(80vw,380px)] aspect-square rounded-xl overflow-hidden shadow-xl border-2 border-slate-700 bg-slate-900">
-                    <div id="analysis-board" class="w-full h-full"></div>
-                </div>
-            </div>
-
-            <!-- Coluna de Lances & Controles -->
-            <div class="flex-1 flex flex-col justify-between gap-3 min-w-0">
-                <div class="flex items-center justify-between border-b border-slate-700 pb-2">
-                    <div class="flex items-center gap-2">
-                        <span class="text-emerald-400 font-bold text-sm">🔍 Análise Tática do Motor</span>
-                        <span id="analysis-engine-pill" class="text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700">Stockfish Ativo</span>
-                    </div>
-                    <button onclick="closeAnalysisModal()" class="text-slate-400 hover:text-white font-bold text-sm">✕ Fechar</button>
-                </div>
-
-                <!-- Badge de Classificação do Lance -->
-                <div id="analysis-move-badge-container" class="bg-slate-900/90 border border-slate-800 p-3 rounded-xl flex items-center justify-between">
-                    <div>
-                        <span id="analysis-move-num" class="text-xs text-slate-400 font-bold">Lance #--</span>
-                        <h5 id="analysis-move-classification" class="text-sm font-extrabold text-amber-300">Selecione um lance</h5>
-                    </div>
-                    <span id="analysis-engine-best" class="text-xs font-mono text-emerald-400">Melhor: --</span>
-                </div>
-
-                <!-- Lista de Lances Clicáveis -->
-                <div id="analysis-history-list" class="flex-1 max-h-48 overflow-y-auto bg-slate-950/70 p-2.5 rounded-lg border border-slate-800 text-xs font-mono flex flex-wrap gap-1.5"></div>
-
-                <!-- Navegação e Pausa -->
-                <div class="flex items-center justify-between gap-2 pt-2 border-t border-slate-800">
-                    <button onclick="navAnalysisMove(-1)" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg text-xs font-bold">◀ Anterior</button>
-                    <button id="btn-toggle-engine" onclick="toggleEnginePause()" class="bg-amber-600 hover:bg-amber-500 px-4 py-2 rounded-lg text-xs font-bold text-white">⏸ Pausar Motor</button>
-                    <button onclick="navAnalysisMove(1)" class="bg-slate-700 hover:bg-slate-600 px-3 py-2 rounded-lg text-xs font-bold">Próximo ▶</button>
-                </div>
-            </div>
+    <!-- CHAT DA PARTIDA (folha na parte de baixo da tela, boa para o polegar) -->
+    <div id="game-chat-panel" class="hidden fixed inset-x-0 bottom-0 z-[60] flex max-h-[65vh] flex-col rounded-t-2xl border border-slate-600 bg-slate-900 shadow-2xl" role="dialog" aria-label="Chat da partida" style="padding-bottom: env(safe-area-inset-bottom, 0px);">
+        <div class="flex shrink-0 items-center justify-between gap-2 px-4 pt-3 pb-2">
+            <strong class="text-sm text-amber-300">💬 Chat da partida</strong>
+            <button onclick="closeGameChat()" aria-label="Fechar chat" class="min-h-10 min-w-10 rounded-lg text-slate-300 hover:text-white">✕</button>
+        </div>
+        <div id="game-chat-messages" class="flex min-h-[140px] flex-1 flex-col gap-2 overflow-y-auto overscroll-contain px-4 pb-2 text-sm" aria-live="polite"></div>
+        <div class="flex shrink-0 gap-2 border-t border-slate-700 p-3">
+            <input id="game-chat-input" type="text" maxlength="200" autocomplete="off" placeholder="Escreva uma mensagem..." class="min-h-[44px] flex-1 rounded-lg border border-slate-600 bg-slate-950 px-3 text-base text-slate-100 focus:outline-none focus:ring-2 focus:ring-amber-500" onkeydown="if (event.key === 'Enter') { event.preventDefault(); sendGameChat(); }">
+            <button onclick="sendGameChat()" class="min-h-[44px] rounded-lg bg-amber-600 px-4 text-sm font-bold text-white hover:bg-amber-500">Enviar</button>
         </div>
     </div>
 
@@ -1316,6 +1328,7 @@
         let clockEnabled = true;     // false em partida sem relógio (tempo ilimitado)
         let clockAnchorAt = 0;       // performance.now() da última sincronização do relógio
         let lastTimeoutClaimAt = 0;
+let clockExpiredShown = false;
         let botThinking = false;
         let matchActive = false;
         let authIsLogin = false;
@@ -1368,6 +1381,7 @@
 
         // Variáveis de Controle de Partida, Desafio e Loja
         let preMatchPlayType = 'bot';
+        let linkRatingKind = 'friendly'; // desafio por link: 'friendly' (sem rating), 'bermuda' ou 'ranked'
         let preMatchColorChoice = 'white';
         let preMatchTimeControl = '180,2';
         let preMatchBotNumber = 1;
@@ -1485,7 +1499,7 @@
                 ['Premove e confirmar lance', 'Faça lances antecipados enquanto o adversário pensa (premove). Em Configurações, ative "Confirmar lance" para tocar em confirmar antes de executar.'],
                 ['Relógio e controles', 'Acompanhe os dois relógios. Contra bots você pode voltar lance; em qualquer partida pode oferecer empate ou desistir.'],
                 ['Abortar e primeiro lance', 'Você tem 20 segundos para o primeiro lance, senão a partida é abortada sem perder rating. Abortar (7 por dia) some depois do seu primeiro lance.'],
-                ['Análise e resultado', 'Após a partida, abra Analisar para ver avaliação, melhor lance e classificação. Navegue pelos lances ou copie o PGN.'],
+                ['Resultado e histórico', 'Ao terminar, veja o resultado e o rating. No seu perfil, abra o histórico para rever a partida lance a lance e copiar o PGN.'],
                 ['Ranks e rating', 'Acompanhe rankings online, bots e modos Clássico, Rápida, Blitz e Bullet. Partidas ranqueadas online atualizam seu rating.'],
                 ['Missões e conquistas', 'Confira objetivos, progresso e recompensas em Missões. Os selos conquistados aparecem em Conquistas nas Configurações.'],
                 ['Clubes', 'Explore clubes, participe de conversas e desafios de clube, ou crie uma comunidade para jogar com outras pessoas.'],
@@ -1500,7 +1514,7 @@
                 ['Premove and confirm move', 'Queue premoves while your opponent thinks. In Settings, enable "Confirm move" to tap confirm before a move is played.'],
                 ['Clock and controls', 'Watch both clocks. You can take back a move against bots; in any match you can offer a draw or resign.'],
                 ['Abort and first move', 'You have 20 seconds for your first move or the game is aborted with no rating loss. Abort (7 per day) disappears after your first move.'],
-                ['Analysis and results', 'After a game, open Analyze to review evaluation, best move and move classification. Browse the moves or copy the PGN.'],
+                ['Results and history', 'When a game ends, check the result and rating. In your profile, open the history to replay the game move by move and copy the PGN.'],
                 ['Ranks and rating', 'Follow online, bot and Classic, Rapid, Blitz and Bullet rankings. Ranked online games update your rating.'],
                 ['Missions and achievements', 'Track objectives, progress and rewards in Missions. Earned badges appear under Achievements in Settings.'],
                 ['Clubs', 'Browse clubs, join conversations and club challenges, or create a community to play with others.'],
@@ -1515,7 +1529,7 @@
                 ['Premove y confirmar jugada', 'Prepara jugadas mientras piensa tu rival (premove). En Configuración, activa "Confirmar jugada" para confirmar antes de ejecutarla.'],
                 ['Reloj y controles', 'Vigila ambos relojes. Puedes deshacer un movimiento contra bots; en cualquier partida puedes ofrecer tablas o rendirte.'],
                 ['Abortar y primera jugada', 'Tienes 20 segundos para la primera jugada o la partida se aborta sin perder rating. Abortar (7 al día) desaparece tras tu primera jugada.'],
-                ['Análisis y resultados', 'Después de jugar, abre Analizar para ver evaluación, mejor movimiento y clasificación. Recorre las jugadas o copia el PGN.'],
+                ['Resultado e historial', 'Al terminar, mira el resultado y el rating. En tu perfil, abre el historial para repasar la partida jugada a jugada y copiar el PGN.'],
                 ['Ranks y rating', 'Consulta rankings en línea, de bots y los modos Clásico, Rápida, Blitz y Bullet. Las partidas clasificatorias actualizan tu rating.'],
                 ['Misiones y logros', 'Consulta objetivos, progreso y recompensas en Misiones. Tus sellos aparecen en Logros dentro de Configuración.'],
                 ['Clubes', 'Explora clubes, participa en conversaciones y desafíos, o crea una comunidad para jugar.'],
@@ -1530,7 +1544,7 @@
                 ['Premove et confirmation du coup', 'Préparez des coups pendant que l’adversaire réfléchit (premove). Dans Paramètres, activez « Confirmer le coup » pour valider avant de jouer.'],
                 ['Pendule et commandes', 'Surveillez les deux pendules. Reprenez un coup contre les bots; dans toute partie, proposez la nulle ou abandonnez.'],
                 ['Abandon et premier coup', 'Vous avez 20 secondes pour le premier coup, sinon la partie est annulée sans perte de rating. Annuler (7 par jour) disparaît après votre premier coup.'],
-                ['Analyse et résultats', 'Après une partie, ouvrez Analyse pour voir évaluation, meilleur coup et classement du coup. Parcourez les coups ou copiez le PGN.'],
+                ['Résultat et historique', 'À la fin, consultez le résultat et le classement. Dans votre profil, ouvrez l’historique pour rejouer la partie coup par coup et copier le PGN.'],
                 ['Classements et rating', 'Consultez les classements en ligne, bots et les modes Classique, Rapide, Blitz et Bullet. Les parties classées mettent le rating à jour.'],
                 ['Missions et succès', 'Suivez objectifs, progression et récompenses dans Missions. Vos badges se trouvent dans Succès, dans Paramètres.'],
                 ['Clubs', 'Parcourez les clubs, participez aux discussions et défis, ou créez une communauté pour jouer.'],
@@ -1545,7 +1559,7 @@
                 ['Премув и подтверждение хода', 'Делайте премувы, пока соперник думает. В Настройках включите «Подтверждать ход», чтобы ход выполнялся после подтверждения.'],
                 ['Часы и управление', 'Следите за обоими часами. Против ботов можно отменить ход; в любой партии можно предложить ничью или сдаться.'],
                 ['Отмена и первый ход', 'На первый ход даётся 20 секунд, иначе партия отменяется без потери рейтинга. Кнопка «Отменить» (7 в день) исчезает после первого хода.'],
-                ['Анализ и результат', 'После партии откройте анализ: оценка, лучший ход и качество хода. Перелистывайте ходы или копируйте PGN.'],
+                ['Результат и история', 'После партии посмотрите результат и рейтинг. В профиле откройте историю, чтобы пересмотреть партию по ходам и скопировать PGN.'],
                 ['Рейтинг и таблицы', 'Смотрите онлайн-рейтинг, рейтинг ботов и режимы Классика, Рапид, Блиц и Буллет. Рейтинговые партии обновляют рейтинг.'],
                 ['Задания и достижения', 'Следите за целями, прогрессом и наградами в заданиях. Полученные знаки видны в достижениях настроек.'],
                 ['Клубы', 'Ищите клубы, участвуйте в беседах и клубных вызовах или создайте сообщество.'],
@@ -1560,7 +1574,7 @@
                 ['Premove und Zug bestätigen', 'Plane Züge im Voraus, während der Gegner denkt (Premove). Aktiviere in den Einstellungen „Zug bestätigen“, um vor dem Ausführen zu bestätigen.'],
                 ['Uhr und Steuerung', 'Behalte beide Uhren im Blick. Gegen Bots kannst du einen Zug zurücknehmen; in jeder Partie kannst du Remis anbieten oder aufgeben.'],
                 ['Abbrechen und erster Zug', 'Du hast 20 Sekunden für den ersten Zug, sonst wird die Partie ohne Ratingverlust abgebrochen. „Abbrechen“ (7 pro Tag) verschwindet nach deinem ersten Zug.'],
-                ['Analyse und Ergebnis', 'Öffne nach einer Partie die Analyse für Bewertung, besten Zug und Zugbewertung. Gehe die Züge durch oder kopiere das PGN.'],
+                ['Ergebnis und Verlauf', 'Sieh dir nach der Partie Ergebnis und Wertung an. Öffne in deinem Profil den Verlauf, um die Partie Zug für Zug nachzuspielen und das PGN zu kopieren.'],
                 ['Ranglisten und Rating', 'Sieh Online-, Bot- und Klassisch-, Rapid-, Blitz- und Bullet-Ranglisten an. Gewertete Online-Partien aktualisieren dein Rating.'],
                 ['Missionen und Erfolge', 'Verfolge Ziele, Fortschritt und Belohnungen bei Missionen. Freigeschaltete Abzeichen findest du unter Erfolge in den Einstellungen.'],
                 ['Vereine', 'Entdecke Vereine, nimm an Gesprächen und Herausforderungen teil oder gründe eine eigene Gemeinschaft.'],
@@ -1575,7 +1589,7 @@
                 ['प्रीमूव और चाल की पुष्टि', 'विरोधी के सोचते समय अगली चाल पहले से चुनें (प्रीमूव)। सेटिंग्स में "चाल की पुष्टि" चालू करें ताकि चाल पुष्टि के बाद चले।'],
                 ['घड़ी और नियंत्रण', 'दोनों घड़ियों पर ध्यान दें। बॉट के विरुद्ध चाल वापस लें; किसी भी मैच में ड्रॉ दें या हार मानें।'],
                 ['रद्द करना और पहली चाल', 'पहली चाल के लिए 20 सेकंड मिलते हैं, वरना मैच बिना रेटिंग हानि के रद्द हो जाता है। "रद्द करें" (दिन में 7) पहली चाल के बाद गायब हो जाता है।'],
-                ['विश्लेषण और परिणाम', 'मैच के बाद विश्लेषण में मूल्यांकन, सर्वश्रेष्ठ चाल और चाल की गुणवत्ता देखें। चालें पलटें या PGN कॉपी करें।'],
+                ['परिणाम और इतिहास', 'मैच खत्म होने पर परिणाम और रेटिंग देखें। अपनी प्रोफ़ाइल में इतिहास खोलकर मैच को चाल-दर-चाल दोबारा देखें और PGN कॉपी करें।'],
                 ['रैंक और रेटिंग', 'ऑनलाइन, बॉट और क्लासिक, रैपिड, ब्लिट्ज व बुलेट रैंक देखें। रैंक वाले ऑनलाइन मैच रेटिंग अपडेट करते हैं।'],
                 ['मिशन और उपलब्धियाँ', 'मिशन में लक्ष्य, प्रगति और इनाम देखें। मिले हुए बैज सेटिंग्स के उपलब्धि भाग में दिखते हैं।'],
                 ['क्लब', 'क्लब खोजें, बातचीत और चुनौतियों में भाग लें या अपना समुदाय बनाएँ।'],
@@ -1698,7 +1712,6 @@
             'Descrição...': ['Description...', 'Descripción...', 'Description...'],
             'Sua posição no Ranking Geral:': ['Your overall ranking:', 'Tu puesto en el ranking general:', 'Votre rang général :'],
             'Rápidas': ['Rapid', 'Rápidas', 'Rapide'],
-            '🔍 Análise Tática do Motor': ['🔍 Engine Analysis', '🔍 Análisis del motor', '🔍 Analyse du moteur'],
             'Próximo ▶': ['Next ▶', 'Siguiente ▶', 'Suivant ▶'],
             'Promoção de Peão FIDE': ['FIDE Pawn Promotion', 'Promoción de peón FIDE', 'Promotion du pion FIDE'],
             'Seu peão chegou à última fileira. Escolha a peça:': ['Your pawn reached the last rank. Choose a piece:', 'Tu peón llegó a la última fila. Elige una pieza:', 'Votre pion a atteint la dernière rangée. Choisissez une pièce :'],
@@ -1729,9 +1742,6 @@
             'Gerar Link de Desafio Direto': ['Create Direct Challenge Link', 'Crear enlace de desafío directo', 'Créer un lien de défi direct'],
             'Partida em Andamento': ['Game in Progress', 'Partida en curso', 'Partie en cours'],
             'Partida Concluída': ['Game Finished', 'Partida finalizada', 'Partie terminée'],
-            'Selecione um lance': ['Select a move', 'Selecciona una jugada', 'Sélectionnez un coup'],
-            'Analisar Partida (Stockfish)': ['Analyze Game (Stockfish)', 'Analizar partida (Stockfish)', 'Analyser la partie (Stockfish)'],
-            'Análise Tática do Motor': ['Engine Analysis', 'Análisis del motor', 'Analyse du moteur'],
             'Música de Fundo (Pausa em partida, retoma no menu)': ['Background Music (paused during games, resumes in the menu)', 'Música de fondo (pausa durante la partida y continúa en el menú)', 'Musique de fond (en pause pendant la partie, reprise dans le menu)'],
             'Modo para Daltônicos (Paleta de Alto Contraste)': ['Colorblind Mode (High-Contrast Palette)', 'Modo para daltónicos (paleta de alto contraste)', 'Mode daltonien (palette à contraste élevé)'],
             '🎵 Música de Fundo (Pausa em partida, retoma no menu)': ['🎵 Background Music (paused during games, resumes in the menu)', '🎵 Música de fondo (pausa durante la partida y continúa en el menú)', '🎵 Musique de fond (en pause pendant la partie, reprise dans le menu)'],
@@ -1878,8 +1888,6 @@
             "Desafio": "Вызов",
                 "Iniciar Partida Contra Bot": "Начать партию против бота",
                 "Gerar Link de Desafio Direto": "Создать ссылку для прямого вызова",
-                "Analisar Partida (Stockfish)": "Анализ партии (Stockfish)",
-                "Análise Tática do Motor": "Тактический анализ движка",
                 "Música de Fundo (Pausa em partida, retoma no menu)": "Фоновая музыка (пауза в партии, продолжается в меню)",
                 "Modo para Daltônicos (Paleta de Alto Contraste)": "Режим для дальтоников (высококонтрастная палитра)",
                 "Jogador": "Игрок",
@@ -1981,7 +1989,7 @@
                 'Privado com Aprovação': 'Закрытый (с подтверждением)', 'Rating Mínimo:': 'Минимальный рейтинг:',
                 'Confirmar Fundação (600 🪙)': 'Подтвердить создание (600 🪙)', 'Descrição...': 'Описание...',
                 'Sua posição no Ranking Geral:': 'Ваше место в общем рейтинге:', 'Rápidas': 'Рапид',
-                '🔍 Análise Tática do Motor': '🔍 Анализ движка', 'Próximo ▶': 'Далее ▶', 'Promoção de Peão FIDE': 'Превращение пешки по ФИДЕ',
+                'Próximo ▶': 'Далее ▶', 'Promoção de Peão FIDE': 'Превращение пешки по ФИДЕ',
                 'Seu peão chegou à última fileira. Escolha a peça:': 'Пешка достигла последней горизонтали. Выберите фигуру:',
                 'Envie o link abaixo para um amigo. Assim que ele clicar, a partida iniciará automaticamente no servidor!': 'Отправьте ссылку другу. После открытия партия автоматически начнётся на сервере.',
                 'Aguardando adversário conectar...': 'Ожидание подключения соперника...',
@@ -2010,7 +2018,7 @@
                 'Efeitos Sonoros & Trilha Sonora (BGM)': 'Звуки и фоновая музыка', 'Acessibilidade & Tabuleiro': 'Доступность и доска',
                 'Atendimento & Conta': 'Поддержка и аккаунт', 'Loja de Cosméticos': 'Магазин оформления', 'Molduras de Avatar': 'Рамки аватара',
                 'Capas de Perfil': 'Обложки профиля', 'Skins de Peças': 'Темы фигур', 'Partida em Andamento': 'Идёт партия',
-                'Partida Concluída': 'Партия завершена', 'Selecione um lance': 'Выберите ход', 'Adicionar amigo': 'Добавить в друзья',
+                'Partida Concluída': 'Партия завершена', 'Adicionar amigo': 'Добавить в друзья',
                 'Salvar': 'Сохранить', 'Buscar': 'Найти', 'Atualizar': 'Обновить', 'Enviar': 'Отправить', 'Aceitar': 'Принять',
                 'Recusar': 'Отклонить', 'Sem pedidos pendentes.': 'Нет ожидающих запросов.', 'Nenhum amigo adicionado.': 'Друзья ещё не добавлены.',
                 'Nenhuma partida concluída.': 'Завершённых партий нет.', 'Este jogador ainda não adicionou uma bio.': 'Игрок ещё не добавил биографию.',
@@ -2049,8 +2057,6 @@
             "Desafio": "Herausforderung",
                 "Iniciar Partida Contra Bot": "Partie gegen Bot starten",
                 "Gerar Link de Desafio Direto": "Direkten Herausforderungslink erstellen",
-                "Analisar Partida (Stockfish)": "Partie analysieren (Stockfish)",
-                "Análise Tática do Motor": "Taktische Engine-Analyse",
                 "Música de Fundo (Pausa em partida, retoma no menu)": "Hintergrundmusik (pausiert in der Partie, läuft im Menü weiter)",
                 "Modo para Daltônicos (Paleta de Alto Contraste)": "Modus für Farbenblinde (kontrastreiche Palette)",
                 "Jogador": "Spieler",
@@ -2152,7 +2158,7 @@
                 'Privado com Aprovação': 'Privat (mit Genehmigung)', 'Rating Mínimo:': 'Mindestwertung:',
                 'Confirmar Fundação (600 🪙)': 'Gründung bestätigen (600 🪙)', 'Descrição...': 'Beschreibung...',
                 'Sua posição no Ranking Geral:': 'Dein Platz in der Gesamtrangliste:', 'Rápidas': 'Rapid',
-                '🔍 Análise Tática do Motor': '🔍 Engine-Analyse', 'Próximo ▶': 'Weiter ▶', 'Promoção de Peão FIDE': 'FIDE-Bauernumwandlung',
+                'Próximo ▶': 'Weiter ▶', 'Promoção de Peão FIDE': 'FIDE-Bauernumwandlung',
                 'Seu peão chegou à última fileira. Escolha a peça:': 'Dein Bauer hat die letzte Reihe erreicht. Wähle eine Figur:',
                 'Envie o link abaixo para um amigo. Assim que ele clicar, a partida iniciará automaticamente no servidor!': 'Sende den Link an einen Freund. Beim Öffnen startet die Partie automatisch auf dem Server.',
                 'Aguardando adversário conectar...': 'Warte auf die Verbindung des Gegners...',
@@ -2181,7 +2187,7 @@
                 'Efeitos Sonoros & Trilha Sonora (BGM)': 'Soundeffekte und Hintergrundmusik', 'Acessibilidade & Tabuleiro': 'Barrierefreiheit und Brett',
                 'Atendimento & Conta': 'Support und Konto', 'Loja de Cosméticos': 'Kosmetik-Shop', 'Molduras de Avatar': 'Avatarrahmen',
                 'Capas de Perfil': 'Profilcover', 'Skins de Peças': 'Figuren-Skins', 'Partida em Andamento': 'Partie läuft',
-                'Partida Concluída': 'Partie beendet', 'Selecione um lance': 'Zug auswählen', 'Adicionar amigo': 'Freund hinzufügen',
+                'Partida Concluída': 'Partie beendet', 'Adicionar amigo': 'Freund hinzufügen',
                 'Salvar': 'Speichern', 'Buscar': 'Suchen', 'Atualizar': 'Aktualisieren', 'Enviar': 'Senden', 'Aceitar': 'Annehmen',
                 'Recusar': 'Ablehnen', 'Sem pedidos pendentes.': 'Keine offenen Anfragen.', 'Nenhum amigo adicionado.': 'Noch keine Freunde hinzugefügt.',
                 'Nenhuma partida concluída.': 'Keine abgeschlossenen Partien.', 'Este jogador ainda não adicionou uma bio.': 'Dieser Spieler hat noch keine Bio hinzugefügt.',
@@ -2220,8 +2226,6 @@
             "Desafio": "चुनौती",
                 "Iniciar Partida Contra Bot": "बॉट के खिलाफ मैच शुरू करें",
                 "Gerar Link de Desafio Direto": "सीधी चुनौती लिंक बनाएँ",
-                "Analisar Partida (Stockfish)": "मैच का विश्लेषण (Stockfish)",
-                "Análise Tática do Motor": "इंजन का रणनीतिक विश्लेषण",
                 "Música de Fundo (Pausa em partida, retoma no menu)": "बैकग्राउंड संगीत (मैच में रुकता है, मेन्यू में फिर चलता है)",
                 "Modo para Daltônicos (Paleta de Alto Contraste)": "रंग-अंधता मोड (उच्च कंट्रास्ट पैलेट)",
                 "Jogador": "खिलाड़ी",
@@ -2323,7 +2327,7 @@
                 'Privado com Aprovação': 'निजी (अनुमोदन आवश्यक)', 'Rating Mínimo:': 'न्यूनतम रेटिंग:',
                 'Confirmar Fundação (600 🪙)': 'स्थापना की पुष्टि करें (600 🪙)', 'Descrição...': 'विवरण...',
                 'Sua posição no Ranking Geral:': 'समग्र रैंकिंग में आपका स्थान:', 'Rápidas': 'रैपिड',
-                '🔍 Análise Tática do Motor': '🔍 इंजन विश्लेषण', 'Próximo ▶': 'आगे ▶', 'Promoção de Peão FIDE': 'FIDE प्यादा प्रमोशन',
+                'Próximo ▶': 'आगे ▶', 'Promoção de Peão FIDE': 'FIDE प्यादा प्रमोशन',
                 'Seu peão chegou à última fileira. Escolha a peça:': 'आपका प्यादा आख़िरी पंक्ति पर पहुँच गया। मोहरा चुनें:',
                 'Envie o link abaixo para um amigo. Assim que ele clicar, a partida iniciará automaticamente no servidor!': 'नीचे का लिंक मित्र को भेजें। खोलने पर मैच सर्वर पर अपने-आप शुरू होगा।',
                 'Aguardando adversário conectar...': 'प्रतिद्वंद्वी के जुड़ने की प्रतीक्षा है...',
@@ -2352,7 +2356,7 @@
                 'Efeitos Sonoros & Trilha Sonora (BGM)': 'ध्वनि प्रभाव और बैकग्राउंड संगीत', 'Acessibilidade & Tabuleiro': 'सुलभता और बोर्ड',
                 'Atendimento & Conta': 'सहायता और खाता', 'Loja de Cosméticos': 'कॉस्मेटिक दुकान', 'Molduras de Avatar': 'अवतार फ्रेम',
                 'Capas de Perfil': 'प्रोफ़ाइल कवर', 'Skins de Peças': 'मोहरों की स्किन', 'Partida em Andamento': 'मैच जारी है',
-                'Partida Concluída': 'मैच समाप्त', 'Selecione um lance': 'चाल चुनें', 'Adicionar amigo': 'मित्र जोड़ें',
+                'Partida Concluída': 'मैच समाप्त', 'Adicionar amigo': 'मित्र जोड़ें',
                 'Salvar': 'सहेजें', 'Buscar': 'खोजें', 'Atualizar': 'ताज़ा करें', 'Enviar': 'भेजें', 'Aceitar': 'स्वीकार करें',
                 'Recusar': 'अस्वीकार करें', 'Sem pedidos pendentes.': 'कोई अनुरोध लंबित नहीं है।', 'Nenhum amigo adicionado.': 'अभी कोई मित्र नहीं जोड़ा गया।',
                 'Nenhuma partida concluída.': 'कोई पूरा मैच नहीं।', 'Este jogador ainda não adicionou uma bio.': 'इस खिलाड़ी ने अभी परिचय नहीं जोड़ा है।',
@@ -2842,7 +2846,8 @@
             applyActiveCosmetics();
             if (notificationPollInterval) clearInterval(notificationPollInterval);
             refreshNotifications();
-            notificationPollInterval = setInterval(refreshNotifications, 30000);
+            refreshMenuBadges();
+            notificationPollInterval = setInterval(() => { if (document.hidden) return; refreshNotifications(); refreshMenuBadges(); }, 30000);
             startSocialRealtime();
             if (firstLoginInPage) {
                 tutorialGateActive = localStorage.getItem(tutorialCompletionKey()) !== 'complete';
@@ -2960,7 +2965,7 @@
                 headerCard.style.backgroundSize = 'cover';
                 headerCard.style.backgroundPosition = 'center';
             }
-            [document.getElementById('board'), document.getElementById('analysis-board')].forEach(boardElement => {
+            [document.getElementById('board')].forEach(boardElement => {
                 if (!boardElement) return;
                 Array.from(boardElement.classList).forEach(cls => {
                     if (cls.startsWith('piece-skin-')) boardElement.classList.remove(cls);
@@ -2970,7 +2975,6 @@
             if (window.__lastPieceSkin !== userData.active_piece_skin) {
                 window.__lastPieceSkin = userData.active_piece_skin;
                 try { if (board && board.resize) board.resize(); } catch (e) {}
-                try { if (analysisBoard && analysisBoard.resize) analysisBoard.resize(); } catch (e) {}
             }
         }
 
@@ -3116,13 +3120,13 @@
         }
 
         let deletingAccount = false;
-        function deleteMyAccount() {
+        async function deleteMyAccount() {
             if (deletingAccount || !userData.username) return;
-            const typed = prompt(localizeStaticPhrase('Para excluir sua conta para sempre, digite seu nome de usuário:'));
+            const typed = await uiPrompt(localizeStaticPhrase('Para excluir sua conta para sempre, digite seu nome de usuário:'), { okText: 'Continuar', danger: true });
             if (typed === null) return;
             let password = '';
             if (!userData.google_linked) {
-                password = prompt(localizeStaticPhrase('Digite sua senha para confirmar:'));
+                password = await uiPrompt(localizeStaticPhrase('Digite sua senha para confirmar:'), { type: 'password', okText: 'Excluir conta', danger: true });
                 if (password === null) return;
             }
             deletingAccount = true;
@@ -3133,9 +3137,9 @@
             .then(async response => ({ ok: response.ok, data: await response.json().catch(() => ({})) }))
             .then(({ ok, data }) => {
                 if (!ok || !data.success) throw new Error(data.error || 'Não foi possível excluir a conta.');
-                alert(localizeStaticPhrase('Conta excluída. Sentiremos sua falta!'));
+                uiToast(localizeStaticPhrase('Conta excluída. Sentiremos sua falta!'), 'ok');
                 clearActiveGameSnapshot();
-                window.location.href = '/';
+                setTimeout(() => { window.location.href = '/'; }, 1800);
             })
             .catch(error => alert(localizeStaticPhrase(error.message)))
             .finally(() => { deletingAccount = false; });
@@ -3164,7 +3168,19 @@
 
         let missionsAutoReturnTimer = null;
 
-        function showLobbyArea(area) {
+        // No celular o menu é alto e a área escolhida ficava no pé da tela: ao tocar numa opção, rola até o conteúdo dela.
+        function scrollLobbyAreaIntoView(area) {
+            const target = document.getElementById(`${area}-area`);
+            if (!target) return;
+            requestAnimationFrame(() => {
+                const top = target.getBoundingClientRect().top;
+                if (top > window.innerHeight * 0.45 || top < 0) {
+                    window.scrollTo({ top: Math.max(0, window.scrollY + top - 12), behavior: 'smooth' });
+                }
+            });
+        }
+
+        function showLobbyArea(area, scrollToArea = false) {
             if (guardTutorialNavigation()) return;
             if (missionsAutoReturnTimer) {
                 clearTimeout(missionsAutoReturnTimer);
@@ -3194,6 +3210,7 @@
                     }
                 }, 30000);
             }
+            if (scrollToArea) scrollLobbyAreaIntoView(area);
         }
 
         function openConfig(section) {
@@ -3228,6 +3245,7 @@
         }
 
         function backToLobby() {
+            closeGameChat();
             if (spectatorMode) {
                 exitSpectatorGame();
                 return;
@@ -3667,10 +3685,69 @@
             });
         }
 
-        function toggleNotifications() {
+        let notificationsOpenedAtScroll = 0;
+        function setNotificationsOpen(open) {
             const panel = document.getElementById('notifications-panel');
-            panel.classList.toggle('hidden');
-            if (!panel.classList.contains('hidden')) refreshNotifications();
+            const toggle = document.getElementById('notifications-toggle');
+            if (!panel) return;
+            panel.classList.toggle('hidden', !open);
+            if (toggle) toggle.setAttribute('aria-expanded', open ? 'true' : 'false');
+            if (!open) return;
+            // No celular o painel é fixo: ancora logo abaixo do sino em vez de cobrir a tela.
+            panel.style.top = window.innerWidth < 640 && toggle ? `${Math.round(toggle.getBoundingClientRect().bottom + 8)}px` : '';
+            notificationsOpenedAtScroll = window.scrollY;
+            refreshNotifications();
+        }
+
+        function closeNotifications() { setNotificationsOpen(false); }
+
+        function toggleNotifications() {
+            setNotificationsOpen(document.getElementById('notifications-panel').classList.contains('hidden'));
+        }
+
+        // O painel some sozinho: ao tocar fora, ao rolar a página ou com Esc (antes ficava preso cobrindo a tela do celular).
+        (function bindNotificationsAutoClose() {
+            const isOpen = () => {
+                const panel = document.getElementById('notifications-panel');
+                return !!panel && !panel.classList.contains('hidden');
+            };
+            document.addEventListener('pointerdown', event => {
+                if (!isOpen()) return;
+                const toggle = document.getElementById('notifications-toggle');
+                if (document.getElementById('notifications-panel').contains(event.target) || (toggle && toggle.contains(event.target))) return;
+                closeNotifications();
+            }, true);
+            document.addEventListener('scroll', event => {
+                if (!isOpen()) return;
+                if (event.target instanceof Node && document.getElementById('notifications-panel').contains(event.target)) return;
+                if (Math.abs(window.scrollY - notificationsOpenedAtScroll) > 24) closeNotifications();
+            }, { capture: true, passive: true });
+            document.addEventListener('keydown', event => { if (event.key === 'Escape' && isOpen()) closeNotifications(); });
+        })();
+
+        // Botões "Atualizar": mostram que estão carregando e confirmam quando terminou (antes não davam nenhum sinal).
+        async function runRefresh(button, loader, doneMessage) {
+            if (button && button.dataset.busy === '1') return;
+            const original = button ? button.textContent : '';
+            if (button) {
+                button.dataset.busy = '1';
+                button.disabled = true;
+                button.classList.add('opacity-60');
+                button.textContent = original.trim().length <= 2 ? '⏳' : uiText('Atualizando…');
+            }
+            try {
+                await Promise.all([Promise.resolve().then(loader), new Promise(resolve => setTimeout(resolve, 450))]);
+                uiToast(doneMessage || 'Atualizado.', 'ok', 1800);
+            } catch (error) {
+                uiToast((error && error.message) || 'Não foi possível atualizar agora.', 'error');
+            } finally {
+                if (button) {
+                    button.textContent = original;
+                    button.disabled = false;
+                    button.classList.remove('opacity-60');
+                    delete button.dataset.busy;
+                }
+            }
         }
 
         function rematchLaunchStorageKey(gameId) {
@@ -3761,14 +3838,14 @@
         }
 
         let giftSending = false;
-        function sendGift() {
+        async function sendGift() {
             if (giftSending) return;
             const itemId = document.getElementById('gift-item-select').value;
             const item = shopCatalog.find(entry => entry[0] === itemId);
             if (!item || !giftRecipientName) return;
             const total = item[2] + 50;
-            if (!confirm(translateFeaturePhrase('Enviar {item} para {recipient} por {total} Camarcoins?', {item: item[1], recipient: giftRecipientName, total}))) return;
-            giftSending = true;
+            giftSending = true; // trava toques repetidos enquanto o diálogo está aberto
+            if (!(await uiConfirm(translateFeaturePhrase('Enviar {item} para {recipient} por {total} Camarcoins?', {item: item[1], recipient: giftRecipientName, total}), { okText: 'Enviar presente 🎁' }))) { giftSending = false; return; }
             fetch('/gifts', {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -3880,7 +3957,7 @@
         }
 
         function loadFriends() {
-            fetch(`/friends?username=${encodeURIComponent(userData.username)}`)
+            return fetch(`/friends?username=${encodeURIComponent(userData.username)}`)
                 .then(response => response.json())
                 .then(data => {
                     document.getElementById('friends-list').innerHTML = data.friends.length ? data.friends.map(friend =>
@@ -3896,8 +3973,8 @@
 
         function loadFriendActiveGames() {
             const container = document.getElementById('friend-active-games');
-            if (!container || !userData.username) return;
-            fetch('/friends/active_games')
+            if (!container || !userData.username) return Promise.resolve();
+            return fetch('/friends/active_games')
                 .then(async response => {
                     const data = await response.json();
                     if (!response.ok) throw new Error(data.error || 'Não foi possível carregar partidas ao vivo.');
@@ -4028,18 +4105,127 @@
                     document.getElementById('player-profile-challenge').classList.toggle('hidden', !data.online || data.friend_status === 'self');
                     document.getElementById('player-profile-challenge-feedback').innerText = data.online ? 'Online agora' : 'Offline';
 
-                    const resultLabels = { win: 'Vitória', loss: 'Derrota', draw: 'Empate' };
-                    const resultClasses = { win: 'text-emerald-300', loss: 'text-red-300', draw: 'text-slate-300' };
+                    const resultLabels = { win: 'Vitória', loss: 'Derrota', draw: 'Empate', aborted: 'Abortada' };
+                    const resultClasses = { win: 'text-emerald-300', loss: 'text-red-300', draw: 'text-slate-300', aborted: 'text-slate-500' };
+                    const kindLabels = { ranked: 'Rankeada', bermuda: 'Bermuda', friendly: 'Amistosa', bot: 'Contra bot' };
                     const history = document.getElementById('player-profile-history');
-                    history.innerHTML = data.history.length ? data.history.map(gameRecord => `
+                    history.innerHTML = data.history.length ? data.history.map(gameRecord => {
+                        const control = gameRecord.time_initial ? `${Math.round(gameRecord.time_initial / 60 * 10) / 10}+${gameRecord.time_increment}` : '';
+                        const details = [kindLabels[gameRecord.kind], control, (gameRecord.played_at || '').slice(0, 10)].filter(Boolean).join(' · ');
+                        const canReplay = gameRecord.game_id && gameRecord.result !== 'aborted';
+                        return `
                         <div class="flex items-center justify-between gap-2 border-b border-slate-800 py-2 text-xs">
-                            <div class="min-w-0"><span class="block truncate text-slate-200">vs ${escapeHtml(gameRecord.opponent)}</span><span class="text-[10px] text-slate-500">${escapeHtml(gameRecord.played_at || gameRecord.status)}</span></div>
-                            <span class="shrink-0 font-bold ${resultClasses[gameRecord.result] || 'text-slate-300'}">${resultLabels[gameRecord.result] || 'Partida'}</span>
-                        </div>`).join('') : '<span class="text-xs text-slate-400">Nenhuma partida concluída.</span>';
+                            <div class="min-w-0"><span class="block truncate text-slate-200">vs ${escapeHtml(gameRecord.opponent)}</span><span class="text-[10px] text-slate-500">${escapeHtml(details || gameRecord.status)}</span></div>
+                            <div class="flex shrink-0 items-center gap-2"><span class="font-bold ${resultClasses[gameRecord.result] || 'text-slate-300'}">${escapeHtml(localizeStaticPhrase(resultLabels[gameRecord.result] || 'Partida'))}</span>
+                            ${canReplay ? `<button onclick="openGameReplay('${escapeHtml(gameRecord.game_id)}')" class="min-h-[40px] rounded-lg bg-slate-700 px-3 text-[11px] font-semibold text-amber-200 hover:bg-slate-600" aria-label="Rever partida contra ${escapeHtml(gameRecord.opponent)}">▶ Rever</button>` : ''}</div>
+                        </div>`;
+                    }).join('') : '<span class="text-xs text-slate-400">Nenhuma partida concluída.</span>';
                     document.getElementById('player-profile-modal').classList.remove('hidden');
                 })
                 .catch(error => alert(error.message || 'Não foi possível carregar o perfil.'));
         }
+
+        // --- REPLAY DE PARTIDA (histórico do perfil) ---
+        let replayData = null;
+        let replayIndex = 0;
+        let replayBoard = null;
+        let replayTimer = null;
+
+        function openGameReplay(gameId) {
+            fetch(`/game/${encodeURIComponent(gameId)}/replay`)
+                .then(async response => {
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || 'Não foi possível abrir a partida.');
+                    return data;
+                })
+                .then(data => {
+                    replayData = data;
+                    replayIndex = data.fens.length - 1;
+                    const game = data.game;
+                    const resultText = { '1-0': 'Brancas venceram', '0-1': 'Pretas venceram', '1/2-1/2': 'Empate' }[game.result] || 'Sem resultado';
+                    document.getElementById('replay-title').textContent = `${game.white} × ${game.black}`;
+                    document.getElementById('replay-subtitle').textContent = [localizeStaticPhrase(resultText), game.termination_reason, (game.played_at || '').slice(0, 10)].filter(Boolean).join(' · ');
+                    document.getElementById('replay-pgn').value = data.pgn;
+                    document.getElementById('game-replay-modal').classList.remove('hidden');
+                    const orientation = game.black === userData.username ? 'black' : 'white';
+                    if (replayBoard && replayBoard.destroy) replayBoard.destroy();
+                    replayBoard = Chessboard('replay-board', { position: data.fens[replayIndex], draggable: false, orientation, pieceTheme: pieceSrc });
+                    setTimeout(() => { if (replayBoard) replayBoard.resize(); }, 60);
+                    renderReplay();
+                })
+                .catch(error => alert(error.message || 'Não foi possível abrir a partida.'));
+        }
+
+        function renderReplay() {
+            if (!replayData) return;
+            const total = replayData.fens.length - 1;
+            replayIndex = Math.max(0, Math.min(total, replayIndex));
+            if (replayBoard) replayBoard.position(replayData.fens[replayIndex], true);
+            const label = document.getElementById('replay-move-label');
+            if (replayIndex === 0) label.textContent = total ? `${localizeStaticPhrase('Posição inicial')} · ${total} ${localizeStaticPhrase('lances')}` : localizeStaticPhrase('Partida sem lances');
+            else label.textContent = `${localizeStaticPhrase('Lance')} ${replayIndex}/${total}: ${Math.ceil(replayIndex / 2)}${replayIndex % 2 ? '.' : '...'} ${replayData.moves[replayIndex - 1]}`;
+            const list = document.getElementById('replay-moves');
+            list.innerHTML = '';
+            replayData.moves.forEach((san, index) => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.dataset.ply = String(index + 1);
+                button.className = `min-h-[32px] rounded px-2 ${index + 1 === replayIndex ? 'bg-amber-600 text-white font-bold' : 'bg-slate-800 text-slate-300'}`;
+                button.textContent = `${index % 2 === 0 ? `${index / 2 + 1}. ` : ''}${san}`;
+                button.onclick = () => { stopReplayAuto(); replayGo(index + 1); };
+                list.appendChild(button);
+            });
+            const current = list.querySelector('.bg-amber-600');
+            if (current && current.scrollIntoView) current.scrollIntoView({ block: 'nearest' });
+        }
+
+        function replayGo(index) { replayIndex = index; renderReplay(); }
+        function replayStep(delta) { stopReplayAuto(); replayGo(replayIndex + delta); }
+
+        function stopReplayAuto() {
+            clearInterval(replayTimer);
+            replayTimer = null;
+            const button = document.getElementById('replay-auto');
+            if (button) { button.textContent = '▶'; button.setAttribute('aria-label', 'Reproduzir'); }
+        }
+
+        function toggleReplayAuto() {
+            if (replayTimer) { stopReplayAuto(); return; }
+            if (!replayData) return;
+            if (replayIndex >= replayData.fens.length - 1) replayIndex = 0;
+            const button = document.getElementById('replay-auto');
+            button.textContent = '⏸';
+            button.setAttribute('aria-label', 'Pausar');
+            replayTimer = setInterval(() => {
+                if (replayIndex >= replayData.fens.length - 1) { stopReplayAuto(); return; }
+                replayGo(replayIndex + 1);
+            }, 900);
+            replayGo(replayIndex);
+        }
+
+        function closeGameReplay() {
+            stopReplayAuto();
+            document.getElementById('game-replay-modal').classList.add('hidden');
+        }
+
+        function copyReplayPgn() {
+            const area = document.getElementById('replay-pgn');
+            const done = () => uiToast('PGN copiado!', 'ok', 2000);
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(area.value).then(done).catch(() => { area.select(); document.execCommand('copy'); done(); });
+            } else {
+                area.select();
+                document.execCommand('copy');
+                done();
+            }
+        }
+
+        document.addEventListener('keydown', event => {
+            if (document.getElementById('game-replay-modal').classList.contains('hidden')) return;
+            if (event.key === 'Escape') closeGameReplay();
+            else if (event.key === 'ArrowLeft') replayStep(-1);
+            else if (event.key === 'ArrowRight') replayStep(1);
+        });
 
         function closePlayerProfile() {
             document.getElementById('player-profile-modal').classList.add('hidden');
@@ -4211,7 +4397,7 @@
 
         function loadClassicRanking() {
             const classicMode = selectedRankMode;
-            fetch(`/classic/ranking?username=${encodeURIComponent(userData.username)}&language=${currentLanguage}&mode=${classicMode}`)
+            return fetch(`/classic/ranking?username=${encodeURIComponent(userData.username)}&language=${currentLanguage}&mode=${classicMode}`)
                 .then(response => response.json())
                 .then(data => {
                     if (!data.bots) return;
@@ -4285,22 +4471,76 @@
             document.getElementById('achievements-progress-bar').style.width = `${total ? Math.round(done * 100 / total) : 0}%`;
         }
 
+        // Bolinha vermelha no menu: missões prontas para resgatar e conquistas novas ainda não vistas.
+        let lastUnlockedAchievementIds = [];
+        function setMenuBadge(id, count) {
+            const badge = document.getElementById(id);
+            if (!badge) return;
+            badge.textContent = count > 99 ? '99+' : String(count);
+            badge.classList.toggle('hidden', !(count > 0));
+        }
+
+        function seenAchievementsKey() { return `capybara-seen-achievements:${userData.username}`; }
+        function loadSeenAchievements() {
+            try {
+                const raw = localStorage.getItem(seenAchievementsKey());
+                return raw === null ? null : new Set(JSON.parse(raw));
+            } catch (error) { return null; }
+        }
+        function saveSeenAchievements(ids) {
+            try { localStorage.setItem(seenAchievementsKey(), JSON.stringify(Array.from(ids))); } catch (error) {}
+        }
+
+        function markAchievementsSeen() {
+            saveSeenAchievements(lastUnlockedAchievementIds);
+            setMenuBadge('menu-achievements-badge', 0);
+        }
+
+        function updateMenuBadges(missions) {
+            if (!userData || !userData.username) return;
+            const list = Array.isArray(missions) ? missions : [];
+            setMenuBadge('menu-missions-badge', list.filter(mission => mission.completed && !mission.claimed).length);
+            const unlocked = Array.from(new Set(achievements || [])).map(seal => `seal:${seal}`)
+                .concat(list.filter(mission => mission.completed).map(mission => `mission:${mission.id}`));
+            lastUnlockedAchievementIds = unlocked;
+            let seen = loadSeenAchievements();
+            if (seen === null) { // primeira vez neste aparelho: o que já existia não conta como novidade
+                saveSeenAchievements(unlocked);
+                seen = new Set(unlocked);
+            }
+            const viewing = !document.getElementById('achievements-area').classList.contains('hidden');
+            if (viewing) markAchievementsSeen();
+            else setMenuBadge('menu-achievements-badge', unlocked.filter(id => !seen.has(id)).length);
+        }
+
+        function refreshMenuBadges() {
+            if (!userData || !userData.username) return Promise.resolve();
+            return fetch(`/missions?username=${encodeURIComponent(userData.username)}`)
+                .then(response => response.json())
+                .then(data => updateMenuBadges(data.missions || []))
+                .catch(() => {});
+        }
+
         function loadAchievementsArea() {
             renderAchievementsArea([]);
             fetch(`/missions?username=${encodeURIComponent(userData.username)}`)
                 .then(response => response.json())
-                .then(data => renderAchievementsArea(data.missions || []))
+                .then(data => {
+                    renderAchievementsArea(data.missions || []);
+                    updateMenuBadges(data.missions || []);
+                    markAchievementsSeen();
+                })
                 .catch(() => {});
         }
 
         function openMissions() {
-            showLobbyArea('missions');
+            showLobbyArea('missions', true);
         }
 
         function loadMissions() {
             const list = document.getElementById('missions-list');
             list.innerHTML = '<p class="text-xs text-slate-400">Carregando missões...</p>';
-            fetch(`/missions?username=${encodeURIComponent(userData.username)}`)
+            return fetch(`/missions?username=${encodeURIComponent(userData.username)}`)
                 .then(async response => {
                     const data = await response.json();
                     if (!response.ok) throw new Error(data.error || 'Não foi possível carregar as missões.');
@@ -4323,6 +4563,7 @@
                         return `<div class="flex flex-wrap items-center gap-2 border border-slate-700 rounded p-3 text-xs"><span class="min-w-0 flex-1">${escapeHtml(mission.title)}</span><span class="rounded border px-2 py-1 ${difficultyClass}">${escapeHtml(mission.difficulty)}</span><span class="text-amber-300">+${mission.reward} moedas</span>${mission.item ? `<span class="skin-lock ${rarityClasses[mission.item.rarity] || ''}">🎁 ${escapeHtml(mission.item.name)}</span>` : ''}${status}</div>`;
                     }).join('') || '<p class="text-xs text-slate-400">Nenhuma missão disponível.</p>';
                     updateClaimAllButton(data.missions);
+                    updateMenuBadges(data.missions);
                 })
                 .catch(error => {
                     list.innerHTML = `<p class="text-xs text-red-300">${escapeHtml(error.message || 'Erro ao carregar missões.')}</p>`;
@@ -4530,7 +4771,7 @@
                     <div onclick="previewShopItem('${id}')" class="border ${isSelected ? 'border-amber-400 bg-amber-950/40 ring-1 ring-amber-400' : 'border-slate-700 bg-slate-900/80'} hover:border-amber-400 p-2.5 rounded-xl cursor-pointer transition flex flex-col justify-between">
                         <div>
                             <div class="mb-2 flex h-20 items-center justify-center rounded ${isFrame || isBanner ? 'bg-slate-800 overflow-hidden' : 'bg-amber-100'}">
-                                ${isSkin ? `<div class="skin-pair"><img src="${skinPieceUrl(id, 'wN')}" alt="${escapeHtml(localizeStaticPhrase(name))}"><img src="${skinPieceUrl(id, 'bQ')}" alt=""></div>` : `<img src="${shopItemImageUrl(id)}" alt="${escapeHtml(localizeStaticPhrase(name))}" class="${thumbnailShape} ${isFrame ? 'h-full w-full object-cover' : ''}">`}
+                                ${isSkin ? `<div class="skin-pair"><img loading="lazy" decoding="async" src="${skinPieceUrl(id, 'wN')}" alt="${escapeHtml(localizeStaticPhrase(name))}"><img loading="lazy" decoding="async" src="${skinPieceUrl(id, 'bQ')}" alt=""></div>` : `<img src="${shopItemImageUrl(id)}" alt="${escapeHtml(localizeStaticPhrase(name))}" class="${thumbnailShape} ${isFrame ? 'h-full w-full object-cover' : ''}">`}
                             </div>
                             <div class="flex items-center justify-between gap-1 mb-1">
                                 <strong class="text-xs text-slate-100 truncate">${escapeHtml(name)}</strong>
@@ -4746,17 +4987,13 @@
         }
 
         function refreshActiveRanking() {
-            if (activeRankTab === 'online') {
-                loadOnlineRanking();
-            } else {
-                loadClassicRanking();
-            }
+            return activeRankTab === 'online' ? loadOnlineRanking() : loadClassicRanking();
         }
 
         function loadOnlineRanking() {
             const list = document.getElementById('online-ranking-list');
             list.innerHTML = '<div class="text-center py-6 text-xs text-slate-400">Carregando classificação online...</div>';
-            fetch(`/ranking/online?username=${encodeURIComponent(userData.username)}`)
+            return fetch(`/ranking/online?username=${encodeURIComponent(userData.username)}`)
                 .then(res => res.json())
                 .then(data => {
                     if (!data.success || !data.ranking) {
@@ -4831,9 +5068,9 @@
             document.getElementById('ranked-matchmaking-filter').classList.toggle('hidden', type !== 'ranked');
             document.getElementById('ranked-queue-tools').classList.toggle('hidden', type !== 'ranked');
             document.getElementById('ranked-rating-note').classList.toggle('hidden', type !== 'ranked');
-            document.getElementById('play-pvp-description').innerText = type === 'ranked'
-                ? localizeStaticPhrase('A fila pareia jogadores online com ratings próximos. A partida atualiza o rating FIDE.')
-                : localizeStaticPhrase('Crie um link casual para convidar alguém diretamente; essa partida não altera o rating.');
+            document.getElementById('link-rating-kind').classList.toggle('hidden', type !== 'pvp');
+            if (type === 'pvp') updateLinkRatingKindUI();
+            else document.getElementById('play-pvp-description').innerText = localizeStaticPhrase('A fila pareia jogadores online com ratings próximos. A partida atualiza o rating FIDE.');
             document.getElementById('ranked-rating-note').innerText = localizeStaticPhrase('Rating atual: {rating} Elo. O pareamento respeita a faixa escolhida.').replace('{rating}', String(userData.rating));
 
             const icon = document.getElementById('btn-start-game-icon');
@@ -4851,6 +5088,28 @@
                 icon.innerText = '🔗';
                 text.innerText = 'Gerar Link de Desafio Direto';
             }
+        }
+
+        function updateLinkRatingKindUI() {
+            ['friendly', 'bermuda', 'ranked'].forEach(kind => {
+                document.getElementById(`link-kind-${kind}`).classList.toggle('active', kind === linkRatingKind);
+            });
+            const descriptions = {
+                friendly: 'Crie um link casual para convidar alguém diretamente; essa partida não altera nenhum rating.',
+                bermuda: 'Partida por link que vale no rating Bermuda do ritmo escolhido (Bullet, Blitz ou Rápida) para os dois jogadores.',
+                ranked: 'Partida por link que vale no rating oficial (FIDE) dos dois jogadores. Os dois precisam ter concluído a calibração.'
+            };
+            document.getElementById('play-pvp-description').innerText = localizeStaticPhrase(descriptions[linkRatingKind]);
+        }
+
+        function setLinkRatingKind(kind) {
+            if (calibrationAllowed && kind !== 'friendly') {
+                alert(localizeStaticPhrase('Conclua duas partidas de calibração antes de acessar o modo Clássico ou Rankeado.'));
+                startCalibrationFlow();
+                return;
+            }
+            linkRatingKind = kind;
+            updateLinkRatingKindUI();
         }
 
         function setPreMatchColor(color) {
@@ -4953,7 +5212,8 @@
                     mode: 'pvp',
                     color: preMatchColorChoice,
                     time_control: preMatchTimeControl,
-                    rated: false
+                    rated: linkRatingKind === 'ranked',
+                    bermuda: linkRatingKind === 'bermuda'
                 })
             })
             .then(res => res.json())
@@ -5016,6 +5276,13 @@
         }
 
         function pollRankedQueue() {
+            // Só fica na fila quem está olhando a tela de busca: saiu dela (outra aba, config, loja...), sai da fila.
+            const searching = !document.getElementById('lobby-screen').classList.contains('hidden')
+                && !document.getElementById('play-area').classList.contains('hidden');
+            if (!searching) {
+                leaveRankedQueue();
+                return;
+            }
             fetch('/matchmaking/ranked/status')
                 .then(response => response.json())
                 .then(data => {
@@ -5029,6 +5296,11 @@
                 })
                 .catch(() => {});
         }
+
+        // Ao fechar/esconder o app, avisa o servidor para tirar a pessoa da fila na hora.
+        window.addEventListener('pagehide', () => {
+            if (rankedQueuePollInterval && navigator.sendBeacon) navigator.sendBeacon('/matchmaking/ranked/leave');
+        });
 
         function leaveRankedQueue() {
             clearInterval(rankedQueuePollInterval);
@@ -5116,6 +5388,7 @@
                 color: state.player_color, timeControl: `${state.time_initial},${state.time_increment}`
             };
             matchActive = true;
+            hideClockExpiredState();
             botThinking = false;
             queuedPremove = null;
             clearArrows();
@@ -5147,7 +5420,7 @@
 
             document.getElementById('match-opponent-name').innerText = oppName;
             const oppFlag = document.getElementById('match-opp-flag');
-            const oppFlagUrl = state.game_type === 'bot' ? flagUrl(state.opponent_country) : '';
+            const oppFlagUrl = spectatorMode ? '' : flagUrl(state.opponent_country);
             oppFlag.classList.toggle('hidden', !oppFlagUrl);
             if (oppFlagUrl) oppFlag.src = oppFlagUrl; else oppFlag.removeAttribute('src');
             oppFlag.alt = state.opponent_country || '';
@@ -5171,6 +5444,21 @@
             const pImg = document.getElementById('match-player-img');
             const pLetter = document.getElementById('match-player-letter');
             document.getElementById('match-player-name').innerText = spectatorMode ? localizeStaticPhrase('Espectador') : (userData.username || localizeStaticPhrase('Você'));
+            const myFlag = document.getElementById('match-player-flag');
+            const myFlagUrl = spectatorMode ? '' : flagUrl(userData.country_code);
+            myFlag.classList.toggle('hidden', !myFlagUrl);
+            if (myFlagUrl) { myFlag.src = myFlagUrl; myFlag.alt = userData.country_code || ''; } else myFlag.removeAttribute('src');
+            // Toque no nome (ou na foto) do adversário humano abre o perfil dele, sem sair da partida.
+            const oppProfileName = (!spectatorMode && state.game_type !== 'bot') ? oppName : '';
+            ['match-opponent-name', 'match-opp-avatar-wrap'].forEach(id => {
+                const element = document.getElementById(id);
+                element.onclick = oppProfileName ? () => openPlayerProfile(encodeURIComponent(oppProfileName)) : null;
+                element.classList.toggle('cursor-pointer', !!oppProfileName);
+                element.classList.toggle('underline', !!oppProfileName && id === 'match-opponent-name');
+                element.classList.toggle('decoration-dotted', !!oppProfileName && id === 'match-opponent-name');
+                if (oppProfileName) { element.setAttribute('role', 'button'); element.setAttribute('title', uiText('Ver perfil')); }
+                else { element.removeAttribute('role'); element.removeAttribute('title'); }
+            });
             const myRatingValue = displayRatings.my_rating != null ? displayRatings.my_rating : userData.rating;
             const myRatingTag = displayRatings.kind === 'bermuda'
                 ? ` · Bermuda ${classicModeNames[displayRatings.mode] || ''}`.trimEnd()
@@ -5206,11 +5494,13 @@
 
             currentGameIsPvp = (state.game_type === 'pvp');
             tbLastGameId = null;
+            renderDrawUi(state);
+            updateChatBar();
             document.getElementById('btn-takeback').disabled = spectatorMode;
             document.getElementById('btn-takeback').classList.toggle('opacity-50', spectatorMode);
             renderTakebackUi(state);
 
-            const modeNames = { bot: localizeStaticPhrase('Contra Bot'), pvp: localizeStaticPhrase('Online PvP') };
+            const modeNames = { bot: localizeStaticPhrase('Contra Bot'), pvp: localizeStaticPhrase('Online PvP') + (state.rated ? ' · ' + localizeStaticPhrase('Rankeada') : (state.classic_mode ? ' · Bermuda' : ' · ' + localizeStaticPhrase('Amistosa'))) };
             document.getElementById('game-mode-badge').innerText = `${spectatorMode ? `${localizeStaticPhrase('Modo observador · somente leitura')} · ` : ''}${modeNames[state.game_type] || localizeStaticPhrase('Partida')} • ${formatTimeControlName(state.time_initial, state.time_increment)}`;
             document.getElementById('game-panel-title').innerText = spectatorMode ? localizeStaticPhrase('Assistindo partida') : localizeStaticPhrase('Partida em Andamento');
 
@@ -5366,7 +5656,7 @@
         }
 
         function onDragStart(source, piece) {
-            if (spectatorMode || !matchActive || game.game_over() || lastBoardButton !== 0) return false;
+            if (spectatorMode || !matchActive || clockExpiredShown || game.game_over() || lastBoardButton !== 0) return false;
             // Peça do adversário: não inicia arrasto e MANTÉM a seleção, para o toque/clique seguinte concluir a captura
             // (o touchstart chega antes do click; limpar aqui fazia a captura por toque nunca acontecer).
             if ((playerColorChoice === 'white' && piece.search(/^b/) !== -1) ||
@@ -5740,6 +6030,8 @@
         }
 
         function handleGameOverState(winner, reason, coinsWon = 0, eloChange = 0, newElo = null, missionsCompleted = []) {
+            hideClockExpiredState();
+            document.getElementById('draw-offer-bar').classList.add('hidden');
             clearActiveGameSnapshot();
             clearSelectedSquare();
             clearPremoves();
@@ -5842,7 +6134,11 @@
                     return;
                 }
                 advanceClocks();
-                if (clockEnabled && (isMyTurnNow() ? playerTime : opponentTime) <= 0) checkTimeoutServer();
+                if (clockEnabled && (isMyTurnNow() ? playerTime : opponentTime) <= 0) {
+                    // O tempo zerou: não há mais o que desistir. Mostra "Voltar ao Menu" na hora e confirma com o servidor.
+                    if (isMyTurnNow()) showClockExpiredState();
+                    checkTimeoutServer();
+                }
                 updateClocks();
             }, 100);
         }
@@ -5876,12 +6172,27 @@
         }
         let lastLowTimeTick = null;
 
-        function checkTimeoutServer() {
-            if (!currentGameId || !clockEnabled) return;
-            const now = performance.now();
-            if (now - lastTimeoutClaimAt < 1500) return; // o relógio roda a cada 100 ms; não inundar o servidor
-            lastTimeoutClaimAt = now;
-            fetch(`/game/${currentGameId}/claim_timeout`, {
+        function showClockExpiredState() {
+            if (clockExpiredShown || spectatorMode) return;
+            clockExpiredShown = true;
+            clearSelectedSquare();
+            clearPremoves();
+            cancelPendingConfirm();
+            document.getElementById('in-game-controls').classList.add('hidden');
+            document.getElementById('timeout-back-bar').classList.remove('hidden');
+        }
+
+        function hideClockExpiredState() {
+            clockExpiredShown = false;
+            const bar = document.getElementById('timeout-back-bar');
+            if (bar) bar.classList.add('hidden');
+        }
+
+        // Pergunta ao servidor se o tempo acabou de verdade; se sim, encerra a partida (derrota/vitória por tempo).
+        function claimTimeoutNow() {
+            if (!currentGameId || !clockEnabled) return Promise.resolve(null);
+            lastTimeoutClaimAt = performance.now();
+            return fetch(`/game/${currentGameId}/claim_timeout`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
                 body: JSON.stringify({ username: userData.username })
@@ -5891,7 +6202,23 @@
                     if (data.status === 'timeout') {
                         handleGameOverState(data.winner, data.reason, 0, data.rating_change || 0, data.new_rating, data.missions_completed || []);
                     }
+                    return data;
                 });
+        }
+
+        function checkTimeoutServer() {
+            if (performance.now() - lastTimeoutClaimAt < 1500) return; // o relógio roda a cada 100 ms; não inundar o servidor
+            claimTimeoutNow().catch(() => {});
+        }
+
+        async function leaveAfterTimeout() {
+            let data = null;
+            try { data = await claimTimeoutNow(); } catch (error) { data = null; }
+            if (!data || data.status === 'timeout' || !matchActive) {
+                backToLobby();
+                return;
+            }
+            uiToast('Confirmando o fim do tempo… toque de novo em instantes.', 'info');
         }
 
         function renderMoveHistoryTable(history) {
@@ -5969,7 +6296,173 @@
             }
         }
 
+        // --- CHAT DA PARTIDA (só entre os dois jogadores de uma partida online) ---
+        let chatGameId = null;
+        let chatLastId = 0;
+        let chatOpen = false;
+        let chatUnread = 0;
+        let chatBusy = false;
+
+        function chatAvailable() {
+            return !!currentGameId && currentGameIsPvp && !spectatorMode && !!userData.username;
+        }
+
+        function updateChatBar() {
+            const available = chatAvailable();
+            document.getElementById('game-chat-bar').classList.toggle('hidden', !available);
+            if (!available) closeGameChat();
+        }
+
+        function setChatUnread(count) {
+            chatUnread = count;
+            const badge = document.getElementById('game-chat-unread-badge');
+            badge.textContent = count > 9 ? '9+' : String(count);
+            badge.classList.toggle('hidden', !(count > 0));
+        }
+
+        function resetChatForGame() {
+            chatGameId = currentGameId;
+            chatLastId = 0;
+            document.getElementById('game-chat-messages').innerHTML = '';
+            setChatUnread(0);
+        }
+
+        function appendChatMessages(messages) {
+            const box = document.getElementById('game-chat-messages');
+            const nearBottom = box.scrollHeight - box.scrollTop - box.clientHeight < 80;
+            messages.forEach(item => {
+                const mine = item.sender === userData.username;
+                const row = document.createElement('div');
+                row.className = `flex flex-col ${mine ? 'items-end' : 'items-start'}`;
+                const name = document.createElement('span');
+                name.className = 'text-[10px] text-slate-400';
+                name.textContent = mine ? uiText('Você') : item.sender;
+                const bubble = document.createElement('span');
+                bubble.className = `max-w-[85%] rounded-2xl px-3 py-2 break-words ${mine ? 'bg-amber-700 text-white' : 'bg-slate-700 text-slate-100'}`;
+                bubble.textContent = item.message;
+                row.append(name, bubble);
+                box.appendChild(row);
+            });
+            if (nearBottom || chatOpen) box.scrollTop = box.scrollHeight;
+        }
+
+        function pollGameChat() {
+            if (document.hidden || chatBusy) return;
+            updateChatBar();
+            if (!chatAvailable()) return;
+            if (chatGameId !== currentGameId) resetChatForGame();
+            const gameId = currentGameId;
+            chatBusy = true;
+            return fetch(`/game/${encodeURIComponent(gameId)}/chat?after=${chatLastId}`)
+                .then(response => response.json())
+                .then(data => {
+                    if (gameId !== currentGameId || !Array.isArray(data.messages) || !data.messages.length) return;
+                    chatLastId = data.messages[data.messages.length - 1].id;
+                    appendChatMessages(data.messages);
+                    const incoming = data.messages.filter(item => item.sender !== userData.username).length;
+                    if (incoming && !chatOpen) {
+                        setChatUnread(chatUnread + incoming);
+                        playMoveSound(600, 0.12);
+                    }
+                })
+                .catch(() => {})
+                .finally(() => { chatBusy = false; });
+        }
+        setInterval(pollGameChat, 3000);
+
+        function openGameChat() {
+            if (!chatAvailable()) return;
+            chatOpen = true;
+            document.getElementById('game-chat-panel').classList.remove('hidden');
+            setChatUnread(0);
+            const box = document.getElementById('game-chat-messages');
+            box.scrollTop = box.scrollHeight;
+            pollGameChat();
+            setTimeout(() => document.getElementById('game-chat-input').focus(), 60);
+        }
+
+        function closeGameChat() {
+            chatOpen = false;
+            const panel = document.getElementById('game-chat-panel');
+            if (panel) panel.classList.add('hidden');
+        }
+
+        function toggleGameChat() { chatOpen ? closeGameChat() : openGameChat(); }
+
+        function sendGameChat() {
+            if (!chatAvailable()) return;
+            const input = document.getElementById('game-chat-input');
+            const text = input.value.trim();
+            if (!text) return;
+            input.value = '';
+            fetch(`/game/${encodeURIComponent(currentGameId)}/chat`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ message: text })
+            })
+                .then(async response => {
+                    const data = await response.json();
+                    if (!response.ok) throw new Error(data.error || 'Não foi possível enviar a mensagem.');
+                    chatBusy = false;
+                    pollGameChat();
+                })
+                .catch(error => {
+                    input.value = text;
+                    uiToast(error.message, 'error');
+                });
+        }
+        document.addEventListener('keydown', event => { if (event.key === 'Escape' && chatOpen) closeGameChat(); });
+
+        // Empate online: quem recebe a proposta vê um aviso com Aceitar/Recusar; quem propôs vê "aguardando" e a resposta.
+        let drawWasMine = false;
+        let drawLastLen = 0;
+        let drawNotifiedKey = '';
+
+        function renderDrawUi(state) {
+            const bar = document.getElementById('draw-offer-bar');
+            const btn = document.getElementById('btn-offer-draw');
+            const offerer = state && state.draw_offered_by;
+            const online = currentGameIsPvp && !spectatorMode && matchActive;
+            const mine = online && offerer === userData.username;
+            const theirs = online && !!offerer && offerer !== userData.username;
+            if (bar) bar.classList.toggle('hidden', !theirs);
+            if (btn) {
+                btn.innerText = mine ? '⏳ Empate proposto' : localizeStaticPhrase('Propor Empate');
+                btn.disabled = spectatorMode || mine;
+                btn.classList.toggle('opacity-50', spectatorMode || mine);
+            }
+            if (theirs) {
+                const key = `${currentGameId}:${offerer}:${((state && state.history) || []).length}`;
+                if (drawNotifiedKey !== key) {
+                    drawNotifiedKey = key;
+                    playMoveSound(520, 0.2);
+                    uiToast('🤝 Seu adversário propôs empate. Aceite ou recuse logo abaixo do tabuleiro.', 'info', 6000);
+                    if (bar) bar.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+                }
+            }
+        }
+
+        function respondDraw(action) {
+            if (spectatorMode || !currentGameId || !matchActive) return;
+            fetch(`/game/${currentGameId}/draw_offer`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ username: userData.username, action })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'draw_agreed') {
+                    handleGameOverState('draw', data.reason, 0, data.rating_change || 0, data.new_rating, data.missions_completed || []);
+                    return;
+                }
+                renderDrawUi({ draw_offered_by: null });
+                uiToast(data.message || data.error || 'Proposta de empate recusada.', data.error ? 'error' : 'info');
+            })
+            .catch(() => uiToast('Erro de conexão ao responder o empate.', 'error'));
+        }
+
         function tickTakeback() {
+            if (document.hidden) return; // app em segundo plano: não gasta o servidor à toa
             if (!matchActive || !currentGameId || spectatorMode || !currentGameIsPvp) {
                 const bar = document.getElementById('takeback-request-bar');
                 if (bar && !bar.classList.contains('hidden')) bar.classList.add('hidden');
@@ -5981,13 +6474,22 @@
             fetch(`/game/${encodeURIComponent(gid)}/state?username=${encodeURIComponent(userData.username)}`)
                 .then(r => r.json())
                 .then(state => {
-                    if (gid !== currentGameId || !state || state.status !== 'active') return;
+                    if (gid !== currentGameId || !state) return;
+                    // Partida encerrada pelo adversário enquanto não era a minha vez (empate aceito, desistência, tempo...).
+                    if (matchActive && ['draw_agreed', 'resigned', 'timeout', 'checkmate', 'stalemate', 'draw'].includes(state.status)) {
+                        handleGameOverState(state.winner, state.termination_reason, 0, state.rating_change || 0, state.new_rating, state.missions_completed || []);
+                        return;
+                    }
+                    if (state.status !== 'active') return;
                     const len = (state.history || []).length;
                     const mine = state.takeback_requested_by === userData.username;
                     if (tbLastGameId !== gid) {
                         tbLastGameId = gid;
                         tbLastLen = len;
                         tbWasMine = false;
+                        drawWasMine = false;
+                        drawLastLen = len;
+                        drawNotifiedKey = '';
                     }
                     if (len < tbLastLen) {
                         // lance(s) desfeito(s) no servidor: atualiza o tabuleiro aqui
@@ -6008,6 +6510,11 @@
                     tbLastLen = len;
                     tbWasMine = mine;
                     renderTakebackUi(state);
+                    const drawMine = state.draw_offered_by === userData.username;
+                    if (drawWasMine && !drawMine && len === drawLastLen) showIllegalWarning('O adversário recusou o empate.');
+                    drawWasMine = drawMine;
+                    drawLastLen = len;
+                    renderDrawUi(state);
                 })
                 .catch(() => {})
                 .finally(() => { tbBusy = false; });
@@ -6088,12 +6595,13 @@
                     showIllegalWarning(data.message || 'O Bot recusou a proposta de empate.');
                 } else {
                     showIllegalWarning(data.message || 'Proposta de empate enviada.');
+                    if (currentGameIsPvp) { drawWasMine = true; renderDrawUi({ draw_offered_by: userData.username }); }
                 }
             })
             .catch(() => alert('Erro de conexão ao propor empate.'));
         }
 
-        function cancelOrResign() {
+        async function cancelOrResign() {
             if (spectatorMode) {
                 exitSpectatorGame();
                 return;
@@ -6102,7 +6610,8 @@
                 backToLobby();
                 return;
             }
-            if (!confirm('Deseja realmente desistir da partida?')) return;
+            if (!(await uiConfirm('Deseja realmente desistir da partida?', { okText: 'Desistir', danger: true }))) return;
+            if (!currentGameId || !matchActive) return; // a partida pode ter acabado com o diálogo aberto
             fetch(`/game/${currentGameId}/resign`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -6205,9 +6714,10 @@
             }, 1000);
         }
 
-        function abortCurrentGame() {
+        async function abortCurrentGame() {
             if (!currentGameId || !matchActive || spectatorMode) return;
-            if (!confirm(localizeStaticPhrase('Abortar esta partida? Você pode usar esta opção até 7 vezes em cada período de 24 horas.'))) return;
+            if (!(await uiConfirm(localizeStaticPhrase('Abortar esta partida? Você pode usar esta opção até 7 vezes em cada período de 24 horas.'), { okText: 'Abortar', danger: true }))) return;
+            if (!currentGameId || !matchActive) return;
             fetch(`/game/${encodeURIComponent(currentGameId)}/abort`, {method: 'POST'})
                 .then(async response => {
                     const data = await response.json();
@@ -6740,16 +7250,23 @@
             }).catch(() => alert('E-mail oficial: camaleocamargo@gmail.com'));
         }
 
+        // Faixa de Elo para buscar adversário: -9999 = infinito para baixo, 9999 = infinito para cima.
+        function formatEloRange(min, max) {
+            const low = Number(min) <= -9999 ? '∞' : `${Number(min) >= 0 ? '+' : ''}${min}`;
+            const high = Number(max) >= 9999 ? '∞' : `+${max}`;
+            return `${low} Elo até ${high} Elo`;
+        }
+
         function updateMatchmakeFilterUI() {
             const min = document.getElementById('matchmake-min-offset').value;
             const max = document.getElementById('matchmake-max-offset').value;
-            document.getElementById('lbl-matchmake-range').innerText = `${min >= 0 ? '+' : ''}${min} Elo até ${Number(max) >= 9999 ? '∞' : `+${max}`} Elo`;
+            document.getElementById('lbl-matchmake-range').innerText = formatEloRange(min, max);
         }
 
         function updateRankedMatchmakeFilterUI() {
             const min = document.getElementById('ranked-min-offset').value;
             const max = document.getElementById('ranked-max-offset').value;
-            document.getElementById('ranked-matchmaking-range').innerText = `${min >= 0 ? '+' : ''}${min} Elo até ${Number(max) >= 9999 ? '∞' : `+${max}`} Elo`;
+            document.getElementById('ranked-matchmaking-range').innerText = formatEloRange(min, max);
         }
 
         // --- SISTEMA DE CLUBES (600 CAMACOINS, CHAT, DESAFIOS) ---
@@ -6867,10 +7384,10 @@
             .catch(() => alert('Erro de conexão ao criar clube.'));
         }
 
-        function joinClubPrompt(clubId, hasPassword) {
+        async function joinClubPrompt(clubId, hasPassword) {
             let password = '';
             if (hasPassword) {
-                password = prompt('Este clube é privado. Digite a senha de acesso:');
+                password = await uiPrompt('Este clube é privado. Digite a senha de acesso:', { type: 'password', okText: 'Entrar' });
                 if (password === null) return;
             }
             fetch('/clubs/join', {
@@ -6963,10 +7480,10 @@
             });
         }
 
-        function createClubChallengePrompt() {
+        async function createClubChallengePrompt() {
             if (!activeClubId) return;
             if (!requireGoogleForOnline()) return;
-            const mode = prompt('Escolha o ritmo do desafio (bullet, blitz, rapid):', 'blitz');
+            const mode = await uiChoose('Escolha o ritmo do desafio:', [{ value: 'bullet', label: 'Bullet · 1+0' }, { value: 'blitz', label: 'Blitz · 3+2' }, { value: 'rapid', label: 'Rápida · 10+0' }]);
             if (!mode) return;
             const timeMap = { bullet: '60,0', blitz: '180,2', rapid: '600,0' };
             const tc = timeMap[mode.toLowerCase()] || '180,2';
@@ -7006,9 +7523,10 @@
             });
         }
 
-        function leaveActiveClub() {
+        async function leaveActiveClub() {
             if (!activeClubId) return;
-            if (!confirm('Deseja realmente sair deste clube?')) return;
+            if (!(await uiConfirm('Deseja realmente sair deste clube?', { okText: 'Sair do clube', danger: true }))) return;
+            if (!activeClubId) return;
             fetch(`/clubs/${activeClubId}/leave`, {
                 method: 'POST',
                 headers: {'Content-Type': 'application/json'},
@@ -7019,165 +7537,6 @@
                 alert(data.message || 'Você saiu do clube.');
                 switchClubView('browse');
             });
-        }
-
-        // --- SISTEMA DE ANÁLISE TÁTICA PÓS-PARTIDA ---
-        let analysisBoard = null;
-        let analysisMoves = [];
-        let analysisStep = 0;
-        let enginePaused = false;
-
-        function openGameAnalysis() {
-            if (!currentGameId) {
-                alert('Nenhuma partida ativa selecionada para análise.');
-                return;
-            }
-            fetch(`/game/${currentGameId}/state?username=${encodeURIComponent(userData.username)}`)
-                .then(r => r.json())
-                .then(state => {
-                    const moves = state.history || [];
-                    if (!moves.length) {
-                        alert('A partida ainda não possui lances registrados para análise.');
-                        return;
-                    }
-
-                    analysisMoves = [];
-                    const tempGame = new Chess();
-                    moves.forEach(m => {
-                        const prevFen = tempGame.fen();
-                        const from = m.uci.substring(0, 2);
-                        const to = m.uci.substring(2, 4);
-                        const promo = m.uci[4] || 'q';
-                        tempGame.move({ from, to, promotion: promo });
-                        analysisMoves.push({
-                            san: m.san,
-                            uci: m.uci,
-                            fen: tempGame.fen(),
-                            prev_fen: prevFen
-                        });
-                    });
-
-                    document.getElementById('analysis-modal').classList.remove('hidden');
-
-                    const cfg = {
-                        position: 'start',
-                        moveSpeed: BOARD_MOVE_SPEED,
-                        orientation: playerColorChoice || 'white',
-                        pieceTheme: pieceSrc
-                    };
-                    requestAnimationFrame(() => {
-                        analysisBoard = Chessboard('analysis-board', cfg);
-                        if (analysisBoard) analysisBoard.resize();
-                    });
-
-                    // Renderiza lista de lances
-                    const histList = document.getElementById('analysis-history-list');
-                    histList.innerHTML = analysisMoves.map((m, idx) => `
-                        <button id="ana-btn-${idx}" onclick="jumpToAnalysisMove(${idx})" class="px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-xs">
-                            ${Math.floor(idx / 2) + 1}${idx % 2 === 0 ? '.' : '...'} ${m.san}
-                        </button>
-                    `).join('');
-
-                    analysisStep = 0;
-                    enginePaused = false;
-                    document.getElementById('btn-toggle-engine').innerText = '⏸ Pausar Motor';
-                    evaluateCurrentAnalysisMove();
-                })
-                .catch(() => alert('Erro ao carregar lances da partida para análise.'));
-        }
-
-        function closeAnalysisModal() {
-            document.getElementById('analysis-modal').classList.add('hidden');
-        }
-
-        function jumpToAnalysisMove(idx) {
-            analysisStep = idx;
-            evaluateCurrentAnalysisMove();
-        }
-
-        function navAnalysisMove(dir) {
-            const next = analysisStep + dir;
-            if (next >= 0 && next < analysisMoves.length) {
-                analysisStep = next;
-                evaluateCurrentAnalysisMove();
-            }
-        }
-
-        function toggleEnginePause() {
-            enginePaused = !enginePaused;
-            document.getElementById('btn-toggle-engine').innerText = enginePaused ? '▶ Retomar Motor' : '⏸ Pausar Motor';
-            document.getElementById('analysis-engine-pill').innerText = enginePaused ? 'Motor Pausado' : 'Stockfish Ativo';
-            document.getElementById('analysis-engine-pill').className = enginePaused
-                ? 'text-[10px] px-2 py-0.5 rounded bg-slate-800 text-slate-400 border border-slate-700'
-                : 'text-[10px] px-2 py-0.5 rounded bg-emerald-950 text-emerald-300 border border-emerald-700';
-            if (!enginePaused) evaluateCurrentAnalysisMove();
-        }
-
-        function evaluateCurrentAnalysisMove() {
-            if (!analysisMoves.length || !analysisBoard) return;
-            const current = analysisMoves[analysisStep];
-            analysisBoard.position(current.fen);
-
-            // Destaca botão de lance ativo
-            analysisMoves.forEach((_, i) => {
-                const btn = document.getElementById(`ana-btn-${i}`);
-                if (btn) btn.className = (i === analysisStep)
-                    ? 'px-2 py-1 rounded bg-amber-600 text-white font-bold text-xs ring-1 ring-amber-400'
-                    : 'px-2 py-1 rounded bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs';
-            });
-
-            document.getElementById('analysis-move-num').innerText = `Lance ${Math.floor(analysisStep / 2) + 1}${analysisStep % 2 === 0 ? ' (Brancas)' : ' (Pretas)'}: ${current.san}`;
-
-            if (enginePaused) return;
-
-            fetch('/analyze_position', {
-                method: 'POST',
-                headers: {'Content-Type': 'application/json'},
-                body: JSON.stringify({
-                    fen: current.fen,
-                    prev_fen: current.prev_fen,
-                    move: current.uci
-                })
-            })
-            .then(r => r.json())
-            .then(data => {
-                if (!data.success) return;
-                const evalData = data.eval;
-                const isCp = evalData.type === 'cp';
-                const val = evalData.value;
-
-                // Barra de Avaliação
-                let evalPercent = 50;
-                let evalDisplay = '0.0';
-                if (isCp) {
-                    evalPercent = Math.max(5, Math.min(95, 50 + (val / 20)));
-                    evalDisplay = (val / 100).toFixed(1);
-                    if (val > 0) evalDisplay = '+' + evalDisplay;
-                } else {
-                    evalPercent = val > 0 ? 100 : 0;
-                    evalDisplay = `M${Math.abs(val)}`;
-                }
-                document.getElementById('analysis-eval-fill').style.height = `${evalPercent}%`;
-                document.getElementById('analysis-eval-text').innerText = evalDisplay;
-
-                // Melhor lance sugerido
-                document.getElementById('analysis-engine-best').innerText = data.best_move ? `Melhor: ${data.best_move}` : 'Melhor: --';
-
-                // Badges com cores distintas oficiais
-                const badges = {
-                    brilliant: { text: "💎 Brilhante (!!)", cls: "text-cyan-400 font-extrabold" },
-                    best: { text: "⭐ Melhor Lance (★)", cls: "text-emerald-400 font-extrabold" },
-                    good: { text: "✓ Bom Lance", cls: "text-lime-400 font-bold" },
-                    inaccuracy: { text: "⚠️ Imprecisão (?!)", cls: "text-amber-400 font-bold" },
-                    mistake: { text: "❌ Erro (?)", cls: "text-orange-400 font-bold" },
-                    blunder: { text: "🛑 Capivarrada (??)", cls: "text-red-500 font-black" }
-                };
-                const badge = badges[data.classification] || badges.good;
-                const classEl = document.getElementById('analysis-move-classification');
-                classEl.innerText = badge.text;
-                classEl.className = `text-sm ${badge.cls}`;
-            })
-            .catch(() => {});
         }
 
         // --- SUPORTE MULTILÍNGUE (7 IDIOMAS) ---
@@ -7340,7 +7699,7 @@
             const length = Math.hypot(endX - startX, endY - startY);
             const angle = Math.atan2(endY - startY, endX - startX) * 180 / Math.PI;
             const arrow = document.createElement('div');
-            arrow.className = 'analysis-arrow';
+            arrow.className = 'board-arrow';
             arrow.style.width = `${length}px`;
             arrow.style.left = `${startX}px`;
             arrow.style.top = `${startY}px`;
@@ -7370,8 +7729,139 @@
         }
 
         // Mensagens de erro do servidor chegam em português: traduz pelo idioma escolhido antes de mostrar.
-        const nativeAlert = window.alert.bind(window);
-        window.alert = message => nativeAlert(typeof localizeStaticPhrase === 'function' ? localizeStaticPhrase(String(message)) : message);
+        // --- AVISOS E DIÁLOGOS DO APP ---
+        // No lugar do alert/confirm/prompt do navegador (a caixa "site diz" que destoa do jogo): aviso que some sozinho
+        // e diálogos em folha na parte de baixo da tela, fáceis de tocar com o polegar.
+        function uiText(message) {
+            const text = String(message ?? '');
+            return typeof localizeStaticPhrase === 'function' ? localizeStaticPhrase(text) : text;
+        }
+
+        function uiToastKind(message) {
+            const text = String(message).toLowerCase();
+            if (/erro|falha|inválid|invalid|incorret|negad|indispon|insuficient|não foi|nao foi|não é possível|não pode|sem permiss|excedid|limite/.test(text)) return 'error';
+            if (/entre na sua|conecte|conta google|aguard|atenção|cuidado/.test(text)) return 'warn';
+            if (/sucesso|conclu|enviad|criad|salv|atualizad|resgatad|compra|excluíd|aceit|copiad|parabéns/.test(text)) return 'ok';
+            return 'info';
+        }
+
+        function uiToast(message, kind, duration) {
+            const text = uiText(message);
+            kind = kind || uiToastKind(text);
+            duration = duration || (kind === 'error' ? 6500 : 4500);
+            let stack = document.getElementById('ui-toast-stack');
+            if (!stack) {
+                stack = document.createElement('div');
+                stack.id = 'ui-toast-stack';
+                stack.setAttribute('aria-live', 'polite');
+                document.body.appendChild(stack);
+            }
+            Array.from(stack.children).forEach(item => { if (item.dataset.text === text) item.remove(); });
+            while (stack.children.length >= 3) stack.firstElementChild.remove();
+            const item = document.createElement('div');
+            item.className = `ui-toast ${kind}`;
+            item.dataset.text = text;
+            item.setAttribute('role', kind === 'error' ? 'alert' : 'status');
+            const icon = document.createElement('span');
+            icon.className = 'ui-toast-icon';
+            icon.textContent = {ok: '✅', warn: '⚠️', error: '❗', info: 'ℹ️'}[kind] || 'ℹ️';
+            const body = document.createElement('span');
+            body.className = 'ui-toast-text';
+            body.textContent = text;
+            const close = document.createElement('button');
+            close.type = 'button';
+            close.className = 'ui-toast-close';
+            close.setAttribute('aria-label', uiText('Fechar'));
+            close.textContent = '✕';
+            item.append(icon, body, close);
+            let timer = null;
+            const remove = () => { clearTimeout(timer); item.remove(); };
+            item.addEventListener('click', remove);
+            timer = setTimeout(remove, duration);
+            stack.appendChild(item);
+        }
+        window.alert = message => uiToast(message);
+
+        // Imagens que falham por instabilidade da rede/servidor (ex.: miniaturas da loja) tentam de novo sozinhas, até 2 vezes.
+        document.addEventListener('error', event => {
+            const img = event.target;
+            if (!(img instanceof HTMLImageElement) || !img.src || img.src.startsWith('data:')) return;
+            const attempt = Number(img.dataset.retry || 0) + 1;
+            if (attempt > 2) return;
+            img.dataset.retry = String(attempt);
+            const base = img.src.split('?retry=')[0];
+            setTimeout(() => { img.src = `${base}?retry=${attempt}`; }, 900 * attempt);
+        }, true);
+
+        let uiDialogQueue = Promise.resolve();
+        function uiDialogBuild() {
+            const overlay = document.createElement('div');
+            overlay.id = 'ui-dialog';
+            overlay.className = 'ui-dialog hidden';
+            overlay.innerHTML = `<div class="ui-dialog-card" role="dialog" aria-modal="true" aria-labelledby="ui-dialog-message">
+                <p id="ui-dialog-message" class="ui-dialog-message"></p>
+                <input id="ui-dialog-input" class="ui-dialog-input hidden" autocomplete="off" autocapitalize="off" spellcheck="false">
+                <div id="ui-dialog-choices" class="ui-dialog-choices hidden"></div>
+                <div class="ui-dialog-actions"><button type="button" id="ui-dialog-cancel" class="ui-btn ui-btn-ghost"></button><button type="button" id="ui-dialog-ok" class="ui-btn ui-btn-primary"></button></div>
+            </div>`;
+            document.body.appendChild(overlay);
+            return overlay;
+        }
+
+        // options: message, input ('text'|'password'), defaultValue, choices [{value,label}], okText, cancelText, danger
+        // Resolve: true/false (confirmação), texto ou null (campo), valor escolhido ou null (opções).
+        function uiDialog(options) {
+            const run = () => new Promise(resolve => {
+                const overlay = document.getElementById('ui-dialog') || uiDialogBuild();
+                const message = overlay.querySelector('#ui-dialog-message');
+                const input = overlay.querySelector('#ui-dialog-input');
+                const choices = overlay.querySelector('#ui-dialog-choices');
+                const okButton = overlay.querySelector('#ui-dialog-ok');
+                const cancelButton = overlay.querySelector('#ui-dialog-cancel');
+                const previousFocus = document.activeElement;
+                message.textContent = uiText(options.message);
+                okButton.textContent = uiText(options.okText || 'OK');
+                cancelButton.textContent = uiText(options.cancelText || 'Cancelar');
+                okButton.className = `ui-btn ${options.danger ? 'ui-btn-danger' : 'ui-btn-primary'}`;
+                input.classList.toggle('hidden', !options.input);
+                input.type = options.input === 'password' ? 'password' : 'text';
+                input.value = options.defaultValue || '';
+                choices.classList.toggle('hidden', !options.choices);
+                okButton.classList.toggle('hidden', !!options.choices);
+                choices.innerHTML = '';
+                const finish = value => {
+                    overlay.classList.add('hidden');
+                    document.removeEventListener('keydown', onKey, true);
+                    overlay.removeEventListener('click', onBackdrop);
+                    okButton.onclick = cancelButton.onclick = input.onkeydown = null;
+                    try { if (previousFocus && previousFocus.focus) previousFocus.focus(); } catch (e) {}
+                    resolve(value);
+                };
+                const cancelValue = options.input || options.choices ? null : false;
+                const onKey = event => { if (event.key === 'Escape') { event.preventDefault(); finish(cancelValue); } };
+                const onBackdrop = event => { if (event.target === overlay) finish(cancelValue); };
+                (options.choices || []).forEach(choice => {
+                    const button = document.createElement('button');
+                    button.type = 'button';
+                    button.className = 'ui-btn ui-btn-ghost';
+                    button.textContent = uiText(choice.label);
+                    button.onclick = () => finish(choice.value);
+                    choices.appendChild(button);
+                });
+                okButton.onclick = () => finish(options.input ? input.value : true);
+                cancelButton.onclick = () => finish(cancelValue);
+                input.onkeydown = event => { if (event.key === 'Enter') { event.preventDefault(); finish(input.value); } };
+                document.addEventListener('keydown', onKey, true);
+                overlay.addEventListener('click', onBackdrop);
+                overlay.classList.remove('hidden');
+                setTimeout(() => (options.input ? input : (options.choices ? choices.firstElementChild : okButton))?.focus(), 30);
+            });
+            uiDialogQueue = uiDialogQueue.then(run, run);
+            return uiDialogQueue;
+        }
+        const uiConfirm = (message, options = {}) => uiDialog({ message, ...options });
+        const uiPrompt = (message, options = {}) => uiDialog({ message, input: options.type || 'text', ...options });
+        const uiChoose = (message, choices, options = {}) => uiDialog({ message, choices, ...options });
 
         function showConnectionToast(message, offline = false) {
             const toast = document.getElementById('connection-toast');
@@ -7384,7 +7874,6 @@
         // Listener Global para Garantir que o Tabuleiro Nunca Fique Preto ao Redimensionar
         window.addEventListener('resize', () => {
             if (board && matchActive) board.resize();
-            if (analysisBoard) analysisBoard.resize();
         });
 
         // ResizeObserver do Tabuleiro para Prevenção Absoluta de Tela Preta

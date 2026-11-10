@@ -150,10 +150,12 @@ def player_profile(username):
                 ).fetchone()
                 friend_status = 'sent' if sent else 'received' if received else 'none'
 
+        # Histórico: só partidas encerradas; abortadas aparecem na lista, mas não contam nas estatísticas.
         games = conn.execute("""
-            SELECT white_user, black_user, status, winner, termination_reason, created_at
+            SELECT id, white_user, black_user, status, winner, termination_reason, created_at,
+                   game_type, time_initial, time_increment, rated, classic_mode
             FROM games
-            WHERE (white_user = ? OR black_user = ?) AND status NOT IN ('waiting', 'active')
+            WHERE (white_user = ? OR black_user = ?) AND status NOT IN ('waiting', 'active', 'pending')
             ORDER BY created_at DESC LIMIT 25
         """, (username, username)).fetchall()
         stats = conn.execute("""
@@ -161,7 +163,7 @@ def player_profile(username):
                    SUM(CASE WHEN (white_user = ? AND winner = 'white') OR (black_user = ? AND winner = 'black') THEN 1 ELSE 0 END) AS wins,
                    SUM(CASE WHEN winner = 'draw' THEN 1 ELSE 0 END) AS draws
             FROM games
-            WHERE (white_user = ? OR black_user = ?) AND status NOT IN ('waiting', 'active')
+            WHERE (white_user = ? OR black_user = ?) AND status NOT IN ('waiting', 'active', 'pending', 'aborted')
         """, (username, username, username, username)).fetchone()
         online = is_user_online(conn, username)
 
@@ -169,16 +171,27 @@ def player_profile(username):
     for game in games:
         player_side = 'white' if game['white_user'] == username else 'black'
         opponent = game['black_user'] if player_side == 'white' else game['white_user']
-        if game['winner'] == 'draw':
+        if game['status'] == 'aborted' or not game['winner']:
+            result = 'aborted'
+        elif game['winner'] == 'draw':
             result = 'draw'
         else:
             result = 'win' if game['winner'] == player_side else 'loss'
+        if game['game_type'] == 'bot':
+            kind = 'bot'
+        else:
+            kind = 'ranked' if game['rated'] else ('bermuda' if game['classic_mode'] else 'friendly')
         history.append({
+            "game_id": game['id'],
             "opponent": opponent or 'Desconhecido',
             "result": result,
             "status": game['status'],
             "termination_reason": game['termination_reason'] or '',
-            "played_at": game['created_at'] or ''
+            "played_at": game['created_at'] or '',
+            "kind": kind,
+            "time_initial": game['time_initial'],
+            "time_increment": game['time_increment'],
+            "player_color": player_side
         })
 
     return jsonify({

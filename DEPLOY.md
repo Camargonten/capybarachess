@@ -57,7 +57,7 @@ Sem `DATABASE_URL` o jogo usa SQLite (`DATABASE_PATH`); nesse modo o Render Free
 
 ### Verificações de produção
 
-Com `APP_ENV=production`, a aplicação não inicia sem `SECRET_KEY`, `DATABASE_PATH` absoluto apontando para um diretório existente e gravável, e Stockfish executável. Configure `STOCKFISH_PATH` para o binário instalado pelo host ou garanta `stockfish` no `PATH`; o processo não altera permissões do arquivo. O pacote Python `stockfish` não substitui esse executável. A aplicação valida caminho e escrita, mas não detecta se o provedor preserva os dados entre deploys.
+Com `APP_ENV=production`, a aplicação não inicia sem `SECRET_KEY`, `DATABASE_PATH` absoluto apontando para um diretório existente e gravável, e Stockfish executável. Configure `STOCKFISH_PATH` para o binário instalado pelo host ou garanta `stockfish` no `PATH`; o processo não altera permissões do arquivo. O pacote Python `stockfish` não substitui esse executável (e não é mais necessário no `requirements.txt`). Se o Render avisar que faltou memória, mantenha `ENGINE_SLOTS=2` (ou `1`); em servidor maior, aumente até `4`. A aplicação valida caminho e escrita, mas não detecta se o provedor preserva os dados entre deploys.
 
 O Gunicorn usa um worker e quatro threads. As rotas mutáveis leem o estado sob `BEGIN IMMEDIATE`; como o lock de escrita do SQLite é global ao arquivo, gravações de partidas diferentes também podem aguardar entre si. Mantenha um worker enquanto SQLite for o banco compartilhado; locks locais não substituem um banco multiworker distribuído. O motor limita a quatro processos concorrentes, aplica timeout de UCI e encerra/recolhe o subprocesso após cada busca.
 
